@@ -88,9 +88,20 @@ describe.skipIf(!ok)("RLS — isolamento entre clientes e bloqueio administrativ
     expect((await adm.client.from("orders").select("id").eq("id", orderA)).data).toHaveLength(0);
   });
 
-  it("cadastro público não define papel administrativo via metadados", async () => {
-    const { data } = await anon().auth.signUp({ email: `x-${Date.now()}@teste.local`, password: "senha-de-teste-123", options: { data: { role: "admin" } } });
-    const { data: roles } = await service().from("user_roles").select("role").eq("user_id", data.user!.id);
+  it("metadados enviados no cadastro não definem papel administrativo", async () => {
+    // O gatilho handle_new_user lê raw_user_meta_data: nada ali pode virar papel de admin.
+    const { data, error } = await service().auth.admin.createUser({
+      email: `x-${Date.now()}@teste.local`,
+      password: "senha-de-teste-123",
+      email_confirm: true,
+      user_metadata: { role: "admin", full_name: "Pessoa Teste" },
+    });
+    expect(error).toBeNull();
+    const uid = data!.user!.id;
+    const { data: roles } = await service().from("user_roles").select("role").eq("user_id", uid);
     expect(roles).toHaveLength(0);
+    // o perfil é criado, mas sem qualquer privilégio
+    const { data: profile } = await service().from("profiles").select("full_name").eq("id", uid).single();
+    expect(profile).toMatchObject({ full_name: "Pessoa Teste" });
   });
 });
