@@ -48,11 +48,19 @@ jobs:
             tok=$(printf '%s' "$CLOUDFLARE_API_TOKEN" | tr -d '[:space:]')
             echo "::add-mask::$tok"
             echo "CF_TOKEN=$tok" >> "$GITHUB_ENV"
-            # Diagnóstico sem revelar o valor: só o tamanho e o tipo de texto.
-            if [[ "$tok" =~ ^[A-Za-z0-9_-]{40}$ ]]; then forma="tem o formato de um token de API"
+            # Diagnóstico sem revelar o valor: tamanho, alfabeto e comparação com
+            # prefixos conhecidos de outras credenciais (resposta sim/não, nada do valor).
+            if [[ "$tok" =~ ^[A-Za-z0-9_-]{40}$ ]]; then forma="tem o formato de um token de API do Cloudflare"
             elif [[ "$tok" =~ ^[0-9a-f]{32}$ ]]; then forma="parece o ID do token (o código da linha na lista), não o valor secreto dele"
             elif [[ "$tok" =~ ^[0-9a-f]{37}$ ]]; then forma="parece a Global API Key, que não serve para publicar Workers"
-            else forma="não tem o formato de um token de API do Cloudflare"
+            elif [[ "$tok" == sbp_* ]]; then forma="parece um token do SUPABASE (começa com sbp_), não do Cloudflare"
+            elif [[ "$tok" == sb_secret_* || "$tok" == sb_publishable_* ]]; then forma="parece uma chave do SUPABASE, não um token do Cloudflare"
+            elif [[ "$tok" == eyJ* ]]; then forma="parece uma chave JWT do Supabase, não um token do Cloudflare"
+            elif [[ "$tok" == gh[pous]_* || "$tok" == github_pat_* ]]; then forma="parece um token do GITHUB, não do Cloudflare"
+            elif [[ "$tok" == v1.0-* ]]; then forma="parece uma chave de Origin CA do Cloudflare, que não publica Workers"
+            elif [[ "$tok" == Bearer* ]]; then forma="veio com a palavra Bearer na frente; cole só o token"
+            elif [[ "$tok" =~ [^A-Za-z0-9_-] ]]; then forma="tem caracteres que não existem num token do Cloudflare (ele só usa letras, números, - e _), então algo veio junto na cópia"
+            else forma="não tem o tamanho de um token do Cloudflare (são 40 caracteres)"
             fi
             echo "Token recebido: ${#tok} caracteres — $forma"
             cf() { curl -sS -H "Authorization: Bearer $tok" "https://api.cloudflare.com/client/v4$1"; }
