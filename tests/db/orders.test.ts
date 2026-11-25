@@ -120,14 +120,17 @@ describe.skipIf(!ok)("pedidos, estoque e pagamento", () => {
   });
 
   it("cupom só se aplica quando ativo e respeita limite", async () => {
-    await db().from("coupons").insert({ code: "TESTE10", discount_type: "percent", discount_value: 10, active: false, max_uses: 1 });
+    // Código único por execução: o teste não depende de um banco recém-criado
+    const code = `TESTE${Date.now().toString().slice(-8)}`;
+    const { error: insErr } = await db().from("coupons").insert({ code, discount_type: "percent", discount_value: 10, active: false, max_uses: 1 });
+    expect(insErr).toBeNull();
     const u = await makeUser();
     const p = await makeProduct({ stock_on_hand: 5, price_cents: 10000 });
-    const params = { ...(await prepareCheckout(u.id, [{ productId: p.id, qty: 1 }], 0)), p_coupon_code: "teste10" };
+    const params = { ...(await prepareCheckout(u.id, [{ productId: p.id, qty: 1 }], 0)), p_coupon_code: code.toLowerCase() };
     expect((await createOrder(params)).error!.message).toMatch(/coupon_invalid/);
-    await db().from("coupons").update({ active: true }).eq("code", "TESTE10");
-    const { order } = await createOrder({ ...(await prepareCheckout(u.id, [{ productId: p.id, qty: 1 }], 0)), p_coupon_code: "teste10" });
+    await db().from("coupons").update({ active: true }).eq("code", code);
+    const { order } = await createOrder({ ...(await prepareCheckout(u.id, [{ productId: p.id, qty: 1 }], 0)), p_coupon_code: code.toLowerCase() });
     expect(order!.total_cents).toBe(9000);
-    expect((await createOrder({ ...(await prepareCheckout(u.id, [{ productId: p.id, qty: 1 }], 0)), p_coupon_code: "TESTE10" })).error!.message).toMatch(/coupon_exhausted/);
+    expect((await createOrder({ ...(await prepareCheckout(u.id, [{ productId: p.id, qty: 1 }], 0)), p_coupon_code: code })).error!.message).toMatch(/coupon_exhausted/);
   });
 });
