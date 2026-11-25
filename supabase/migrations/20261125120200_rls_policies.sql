@@ -50,13 +50,22 @@ grant select on public.brands, public.categories to anon, authenticated;
 create policy public_read on public.brands for select to anon, authenticated using (active);
 create policy public_read on public.categories for select to anon, authenticated using (active);
 
+-- Visibilidade pública de um produto, sem expor a tabela products ao público
+-- (security definer: lê só o status; usado nas políticas de imagens e kits).
+create or replace function public.is_product_public(p_id uuid)
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.products p where p.id = p_id and p.status in ('active','sold_out'));
+$$;
+revoke all on function public.is_product_public(uuid) from public;
+grant execute on function public.is_product_public(uuid) to anon, authenticated;
+
 grant select on public.product_images to anon, authenticated;
 create policy public_read on public.product_images for select to anon, authenticated
-  using (exists (select 1 from public.products p where p.id = product_id and p.status in ('active','sold_out')));
+  using (public.is_product_public(product_id));
 
 grant select on public.bundle_items to anon, authenticated;
 create policy public_read on public.bundle_items for select to anon, authenticated
-  using (exists (select 1 from public.products p where p.id = bundle_product_id and p.status in ('active','sold_out')));
+  using (public.is_product_public(bundle_product_id));
 
 grant select on public.reviews to anon, authenticated;
 create policy public_read on public.reviews for select to anon, authenticated using (status = 'approved');

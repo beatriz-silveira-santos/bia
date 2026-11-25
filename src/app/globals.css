@@ -140,3 +140,13 @@
   .prose-store ul { @apply my-3 list-disc pl-6; }
   .prose-store a { @apply text-rose-gold-ink underline underline-offset-4; }
 }
+
+@keyframes sheet {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+/* Celular: toques mais responsivos e sem destaque cinza do iOS */
+@layer base {
+  a, button, summary, label { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+}

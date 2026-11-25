@@ -3,6 +3,7 @@ import { getFacetValues, listProducts, SORT_OPTIONS, type ProductFilters } from 
 import { hasActiveFilters } from "@/lib/search-params";
 import { GENDER_LABEL, type Gender } from "@/lib/types";
 import { ProductGrid } from "./ProductCard";
+import { FilterSheet } from "./FilterSheet";
 
 const AVAIL_LABEL = { ready_stock: "Pronta entrega", preorder: "Sob encomenda", sold_out: "Esgotado" } as const;
 
@@ -39,12 +40,12 @@ export async function CatalogListing({ basePath, filters, facetCategory, hidden 
     </label>
   );
 
-  const filterForm = (
+  const filterForm = (px: string) => (
     <form action={basePath} method="get" className="space-y-6" aria-label="Filtrar produtos">
       {Object.entries(hidden).map(([k, v]) => <input key={k} type="hidden" name={k} value={v} />)}
       <div>
-        <label htmlFor="ordem" className="label">Ordenar por</label>
-        <select id="ordem" name="ordem" defaultValue={filters.sort ?? "price_asc"} className="field !py-2.5">
+        <label htmlFor={`${px}ordem`} className="label">Ordenar por</label>
+        <select id={`${px}ordem`} name="ordem" defaultValue={filters.sort ?? "price_asc"} className="field !py-2.5">
           {SORT_OPTIONS.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
         </select>
       </div>
@@ -73,11 +74,11 @@ export async function CatalogListing({ basePath, filters, facetCategory, hidden 
       <fieldset>
         <legend className="mb-2 text-sm font-semibold text-ink">Faixa de preço (R$)</legend>
         <div className="flex items-center gap-2">
-          <label className="sr-only" htmlFor="min">Preço mínimo</label>
-          <input id="min" name="min" inputMode="numeric" pattern="[0-9]*" placeholder="Mín." defaultValue={filters.minPrice != null ? filters.minPrice / 100 : ""} className="field !py-2" />
+          <label className="sr-only" htmlFor={`${px}min`}>Preço mínimo</label>
+          <input id={`${px}min`} name="min" inputMode="numeric" pattern="[0-9]*" placeholder="Mín." defaultValue={filters.minPrice != null ? filters.minPrice / 100 : ""} className="field !py-2" />
           <span aria-hidden>–</span>
-          <label className="sr-only" htmlFor="max">Preço máximo</label>
-          <input id="max" name="max" inputMode="numeric" pattern="[0-9]*" placeholder="Máx." defaultValue={filters.maxPrice != null ? filters.maxPrice / 100 : ""} className="field !py-2" />
+          <label className="sr-only" htmlFor={`${px}max`}>Preço máximo</label>
+          <input id={`${px}max`} name="max" inputMode="numeric" pattern="[0-9]*" placeholder="Máx." defaultValue={filters.maxPrice != null ? filters.maxPrice / 100 : ""} className="field !py-2" />
         </div>
       </fieldset>
       {facets.volumes.length > 0 && (
@@ -110,13 +111,8 @@ export async function CatalogListing({ basePath, filters, facetCategory, hidden 
   return (
     <div className="grid gap-8 lg:grid-cols-[260px_1fr] lg:gap-12">
       <aside className="lg:sticky lg:top-36 lg:self-start">
-        <details className="card group p-5 lg:hidden">
-          <summary className="flex min-h-8 cursor-pointer list-none items-center justify-between font-semibold">
-            Filtrar e ordenar {active && <span className="rounded-full bg-ink px-2 py-0.5 text-xs text-ivory">ativos</span>}
-          </summary>
-          <div className="mt-5">{filterForm}</div>
-        </details>
-        <div className="hidden lg:block">{filterForm}</div>
+        <FilterSheet active={active} total={total}>{filterForm("m-")}</FilterSheet>
+        <div className="hidden lg:block">{filterForm("d-")}</div>
       </aside>
       <div>
         <p className="mb-5 text-sm text-ink-muted" role="status" aria-live="polite">

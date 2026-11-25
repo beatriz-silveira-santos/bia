@@ -21,7 +21,7 @@
 
 ```sql
 insert into public.user_roles (user_id, role)
-select id, 'owner' from auth.users where email = 'EMAIL_DA_PROPRIETARIA';
+select id, 'admin' from auth.users where email = 'EMAIL_DA_PROPRIETARIA';
 ```
 
 3. Ela entra em `/admin/entrar` e cadastra o app autenticador (Google Authenticator, Authy, 1Password etc.). Sem o segundo fator o painel não abre.

@@ -18,6 +18,6 @@ export function ProductImage({
     );
   }
   return (
-    <Image src={src} alt={alt ?? ""} fill sizes={sizes} priority={priority} className={`object-cover ${className}`} unoptimized={src.startsWith("/")} />
+    <Image src={src} alt={alt ?? ""} fill sizes={sizes} priority={priority} className={`object-contain p-[7%] mix-blend-multiply ${className}`} unoptimized={src.startsWith("/")} />
   );
 }

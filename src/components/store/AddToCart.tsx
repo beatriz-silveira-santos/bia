@@ -21,7 +21,7 @@ export function AddToCart({ productId, saleState, max, priceCents, path }: { pro
   }
   const label = saleState === "preorder" ? "Encomendar" : "Adicionar ao carrinho";
   return (
-    <form action={action} className="space-y-3">
+    <form id="add-to-cart" action={action} className="space-y-3">
       <input type="hidden" name="productId" value={productId} />
       <input type="hidden" name="returnTo" value={path} />
       <div className="flex gap-3">

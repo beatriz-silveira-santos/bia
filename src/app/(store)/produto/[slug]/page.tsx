@@ -11,6 +11,8 @@ import { supabaseServer } from "@/lib/supabase/server";
 import { toggleFavorite } from "@/app/actions/cart";
 import { AvailabilityBadge, PreorderNotice } from "@/components/store/Availability";
 import { AddToCart } from "@/components/store/AddToCart";
+import { formatBRL } from "@/lib/money";
+import { StickyBuyBar } from "@/components/store/StickyBuyBar";
 import { Breadcrumbs } from "@/components/store/Breadcrumbs";
 import { Gallery, type Media } from "@/components/store/Gallery";
 import { Price } from "@/components/store/Price";
@@ -124,6 +126,7 @@ export default async function ProductPage({ params }: Props) {
           <div className="mt-6 space-y-4">
             {p.sale_state === "preorder" && <PreorderNotice value={p.preorder_lead_time_value} unit={p.preorder_lead_time_unit} />}
             <AddToCart productId={p.id} saleState={p.sale_state} max={p.max_purchasable} priceCents={p.effective_price_cents} path={`/produto/${p.slug}`} />
+            {p.sale_state !== "sold_out" && p.max_purchasable >= 1 && <StickyBuyBar priceLabel={formatBRL(p.effective_price_cents)} label={p.sale_state === "preorder" ? "Encomendar" : "Adicionar à sacola"} />}
             {p.sale_state === "sold_out" && <p id="sold-out-msg" className="text-sm text-ink-muted">Este produto está esgotado. Fale com a gente pelo WhatsApp para saber sobre reposição.</p>}
             <div className="flex gap-2">
               <form action={toggleFavorite} className="flex-1">

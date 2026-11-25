@@ -33,6 +33,17 @@ describe.skipIf(!ok)("RLS — isolamento entre clientes e bloqueio administrativ
     expect(data).toHaveLength(0);
   });
 
+  it("visitante vê imagens de produto publicado, mas não de rascunho", async () => {
+    const pub = await makeProduct({ stock_on_hand: 1 });
+    const draft = await makeProduct({ status: "draft" });
+    await service().from("product_images").insert([
+      { product_id: pub.id, storage_path: "teste/pub.jpg", alt_text: "pub" },
+      { product_id: draft.id, storage_path: "teste/draft.jpg", alt_text: "draft" },
+    ]);
+    const { data } = await anon().from("product_images").select("product_id").in("product_id", [pub.id, draft.id]);
+    expect(data?.map((d) => d.product_id)).toEqual([pub.id]);
+  });
+
   it("view pública não expõe campos internos", async () => {
     const { error } = await anon().from("catalog_products").select("supplier_name").limit(1);
     expect(error).not.toBeNull();

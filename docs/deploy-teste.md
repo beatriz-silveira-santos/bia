@@ -2,7 +2,9 @@
 
 Publica a loja em `https://biastore-preview.<subdominio>.workers.dev`, usando **somente** a conta Cloudflare e o projeto Supabase da proprietária. Nenhum domínio ou DNS é alterado. O checkout fica desligado (Configurações → Checkout habilitado = não).
 
-A publicação só acontece quando a proprietária clica em **Actions → Publicar versão de teste → Run workflow**.
+A publicação é automática a cada atualização do código (e também pelo botão **Actions → Publicar versão de teste → Run workflow**). Enquanto as chaves abaixo não estiverem cadastradas, a automação só avisa o que falta e não publica nada.
+
+O catálogo de teste usa produtos das marcas da loja com **fotos de divulgação públicas, preços e estoques provisórios**, só para demonstração (`scripts/demo-teste.mjs`). Nada disso vai para a versão definitiva.
 
 ## 1. Supabase (projeto de teste)
 
@@ -13,7 +15,7 @@ A publicação só acontece quando a proprietária clica em **Actions → Public
 
 ## 2. Cloudflare
 
-1. Em *Workers & Pages*, confira seu subdomínio `*.workers.dev` (ex.: `bia.workers.dev`).
+1. Abra *Workers & Pages* uma vez para ativar seu subdomínio gratuito `*.workers.dev` e anote-o (ex.: `bia-xyz.workers.dev`).
 2. Em *My Profile → API Tokens → Create Token*, use o modelo **Edit Cloudflare Workers** limitado à sua conta.
 3. A URL do teste será `https://biastore-preview.<seu-subdominio>.workers.dev`.
 4. Copie o **Account ID** (barra lateral da página inicial da conta).
@@ -41,12 +43,15 @@ No repositório: *Settings → Environments → New environment* com o nome **`t
 | `TESTE_SUPABASE_URL` | URL do projeto (1.2) |
 | `TESTE_SUPABASE_PUBLISHABLE_KEY` | chave publishable (1.2) |
 | `TESTE_SUPABASE_PROJECT_REF` | o código do projeto (o trecho antes de `.supabase.co` na URL) |
+| `TESTE_ADMIN_EMAIL` | o e-mail com que você se cadastrou na loja de teste (para virar administradora) |
 
 Nunca envie esses valores por chat, e-mail ou issue.
 
-## 4. Publicar
+## 4. Publicar e virar administradora
 
-*Actions → Publicar versão de teste → Run workflow*. Ao final, abra a URL do teste. Para virar administradora, siga "Primeiro administrador" em `supabase.md`.
+1. *Actions → Publicar versão de teste → Run workflow*. Ao final, abra a URL do teste.
+2. Cadastre-se na loja de teste e confirme o e-mail.
+3. Preencha a variável `TESTE_ADMIN_EMAIL` e rode o workflow de novo: sua conta ganha acesso ao `/admin` (com app autenticador).
 
 ## Endereço castelan.adv.br/biastore (opcional)
 

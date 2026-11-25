@@ -20,9 +20,6 @@ export async function Header() {
       <div className="container-page grid h-16 grid-cols-[1fr_auto_1fr] items-center lg:h-20">
         <div className="flex items-center gap-1">
           <MobileMenu items={items} />
-          <Link href="/busca" className="inline-flex h-11 w-11 items-center justify-center rounded-full hover:bg-blush-100 lg:hidden" aria-label="Buscar produtos">
-            <IconSearch />
-          </Link>
           <form action="/busca" role="search" className="hidden lg:block">
             <label htmlFor="q-header" className="sr-only">Buscar produtos</label>
             <div className="flex items-center gap-2 rounded-full border border-line-strong bg-porcelain px-4 py-2 focus-within:border-ink">
@@ -35,10 +32,10 @@ export async function Header() {
           <Logo logoPath={settings?.logo_path} />
         </Link>
         <div className="flex items-center justify-end gap-0.5">
-          <Link href="/conta" className="hidden h-11 w-11 items-center justify-center rounded-full hover:bg-blush-100 sm:inline-flex" aria-label={user ? "Minha conta" : "Entrar ou criar conta"}>
+          <Link href="/conta" className="inline-flex h-11 w-11 items-center justify-center rounded-full hover:bg-blush-100" aria-label={user ? "Minha conta" : "Entrar ou criar conta"}>
             <IconUser />
           </Link>
-          <Link href="/favoritos" className="inline-flex h-11 w-11 items-center justify-center rounded-full hover:bg-blush-100" aria-label="Favoritos">
+          <Link href="/favoritos" className="hidden h-11 w-11 lg:inline-flex items-center justify-center rounded-full hover:bg-blush-100" aria-label="Favoritos">
             <IconHeart />
           </Link>
           <Link href="/carrinho" className="relative inline-flex h-11 w-11 items-center justify-center rounded-full hover:bg-blush-100" aria-label={`Carrinho, ${count} ${count === 1 ? "item" : "itens"}`}>

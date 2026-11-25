@@ -6,7 +6,7 @@ import { SITE } from "@/lib/site";
 import { Shelf } from "@/components/store/Shelf";
 import { NewsletterForm } from "@/components/store/NewsletterForm";
 import { TrackedLink } from "@/components/store/TrackedLink";
-import { IconInstagram } from "@/components/ui/icons";
+import { IconInstagram, IconSearch } from "@/components/ui/icons";
 
 
 const SHORTCUTS = [
@@ -31,23 +31,34 @@ export default async function HomePage() {
 
   return (
     <>
+      {/* Busca rápida (celular) */}
+      <div className="container-page pt-4 lg:hidden">
+        <form action="/busca" role="search">
+          <label htmlFor="q-home" className="sr-only">Buscar produtos</label>
+          <div className="flex items-center gap-3 rounded-full border border-line-strong bg-porcelain px-5 py-3 shadow-sm focus-within:border-ink">
+            <IconSearch width={20} height={20} className="shrink-0 text-ink-muted" />
+            <input id="q-home" name="q" type="search" enterKeyHint="search" placeholder="Buscar perfume, marca, skincare…" className="w-full bg-transparent text-base outline-none placeholder:text-ink-muted" />
+          </div>
+        </form>
+      </div>
+
       {/* 1. Destaque principal */}
       <section className="relative overflow-hidden">
-        <div className="container-page grid items-center gap-8 py-10 sm:py-16 lg:grid-cols-[1.05fr_1fr] lg:gap-14 lg:py-20">
+        <div className="container-page grid items-center gap-6 py-6 sm:py-16 lg:grid-cols-[1.05fr_1fr] lg:gap-14 lg:py-20">
           <div className="order-2 lg:order-1">
-            <p className="eyebrow mb-5">Perfumes importados · Árabes · Skincare</p>
-            <h1 className="text-[length:var(--text-display)] leading-[var(--text-display--line-height)] text-ink">
+            <p className="eyebrow mb-3 sm:mb-5">Perfumes importados · Árabes · Skincare</p>
+            <h1 className="text-[2.35rem] leading-[1.05] text-ink sm:text-[length:var(--text-display)] sm:leading-[var(--text-display--line-height)]">
               Fragrâncias e cuidados <em className="font-normal italic text-rose-gold-ink">escolhidos</em> com carinho.
             </h1>
-            <p className="mt-6 max-w-md text-lg text-ink-soft">
+            <p className="mt-4 max-w-md text-base text-ink-soft sm:mt-6 sm:text-lg">
               Perfumes importados e árabes, decantes de 5 ml para conhecer antes do frasco, skincare e cuidados capilares.
             </p>
-            <div className="mt-8 flex flex-wrap gap-3">
-              <Link href="/categoria/perfumes" className="btn-primary">Explorar produtos</Link>
-              <Link href="/categoria/decantes-5-ml" className="btn-secondary">Conhecer os decantes</Link>
+            <div className="mt-6 grid grid-cols-2 gap-3 sm:mt-8 sm:flex sm:flex-wrap">
+              <Link href="/categoria/perfumes" className="btn-primary">Ver perfumes</Link>
+              <Link href="/categoria/decantes-5-ml" className="btn-secondary">Decantes 5 ml</Link>
             </div>
           </div>
-          <div className="relative order-1 aspect-[4/5] overflow-hidden rounded-[2rem] bg-gradient-to-br from-blush-100 via-blush-50 to-champagne-soft sm:aspect-[5/4] lg:order-2 lg:aspect-[4/5]">
+          <div className={`relative order-1 overflow-hidden rounded-[2rem] bg-gradient-to-br from-blush-100 via-blush-50 to-champagne-soft lg:order-2 lg:aspect-[4/5] ${hero ? "aspect-[16/11] sm:aspect-[5/4]" : "hidden sm:block sm:aspect-[5/4]"}`}>
             {hero ? (
               <Image src={hero} alt={settings?.hero_image_alt ?? "Produtos da Bia Store Importados"} fill priority sizes="(min-width:1024px) 45vw, 100vw" className="object-cover" />
             ) : (
@@ -65,10 +76,10 @@ export default async function HomePage() {
 
       {/* 2. Atalhos */}
       <nav aria-label="Atalhos por categoria" className="container-page">
-        <ul className="-mx-5 flex gap-3 overflow-x-auto px-5 pb-2 sm:mx-0 sm:grid sm:grid-cols-3 sm:px-0 lg:grid-cols-6">
+        <ul className="relative -mx-5 flex snap-x scroll-px-5 gap-3 overflow-x-auto px-5 pb-2 sm:mx-0 sm:grid sm:grid-cols-3 sm:px-0 lg:grid-cols-6">
           {SHORTCUTS.map((s) => (
-            <li key={s.href} className="shrink-0">
-              <Link href={s.href} className={`group flex h-28 w-36 flex-col justify-between rounded-2xl bg-gradient-to-br ${s.tone} p-4 ring-1 ring-line transition hover:ring-rose-gold sm:w-auto`}>
+            <li key={s.href} className="shrink-0 snap-start">
+              <Link href={s.href} className={`group flex h-24 w-32 flex-col justify-between rounded-2xl bg-gradient-to-br ${s.tone} p-4 ring-1 ring-line transition active:scale-[0.97] hover:ring-rose-gold sm:h-28 sm:w-auto`}>
                 <span className="block h-px w-6 bg-rose-gold" aria-hidden />
                 <span className="font-display text-xl leading-tight text-ink">{s.label}</span>
               </Link>
@@ -78,11 +89,11 @@ export default async function HomePage() {
       </nav>
 
       {/* 3–7. Vitrines */}
+      <Shelf eyebrow="Acabaram de chegar" title="Novidades" href="/novidades" products={novidades.products} listName="home-novidades" />
       <Shelf eyebrow="Oriente" title="Perfumes árabes" href="/categoria/perfumes-arabes" products={arabes.products} listName="home-arabes" />
       <Shelf eyebrow="Pele" title="Skincare" href="/categoria/skincare" products={skincare.products} listName="home-skincare" />
       <Shelf eyebrow="Fios" title="Cuidados capilares" href="/categoria/cabelos" products={cabelos.products} listName="home-cabelos" />
       <Shelf eyebrow="Para presentear" title="Kits e combos" href="/categoria/kits-e-presentes" products={kits.products} listName="home-kits" />
-      <Shelf eyebrow="Acabaram de chegar" title="Novidades" href="/novidades" products={novidades.products} listName="home-novidades" />
 
       {/* 8. Sobre */}
       <section className="container-page py-14" aria-labelledby="sobre-titulo">

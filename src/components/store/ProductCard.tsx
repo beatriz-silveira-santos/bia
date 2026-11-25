@@ -21,7 +21,7 @@ export function ProductCard({ product, priority = false, listName }: { product: 
     <article className="group relative flex flex-col">
       <Link
         href={`/produto/${product.slug}`}
-        className="relative block aspect-[4/5] overflow-hidden rounded-[var(--radius-card)] bg-blush-50"
+        className="relative block aspect-[4/5] overflow-hidden rounded-[var(--radius-card)] bg-white ring-1 ring-line/60"
         data-list={listName}
       >
         <ProductImage path={product.cover_image} alt={product.cover_alt ?? product.name} sizes="(min-width:1024px) 25vw, (min-width:640px) 33vw, 50vw" priority={priority} className="transition duration-500 group-hover:scale-[1.03]" />
