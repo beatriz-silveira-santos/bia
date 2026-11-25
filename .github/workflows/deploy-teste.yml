@@ -39,30 +39,36 @@ jobs:
             [ -n "${!v}" ] || missing="$missing $v"
           done
           bad=""
-          # O token do Cloudflare é conferido antes de qualquer build: sem ele, nada é publicado.
-          if [ -n "$CLOUDFLARE_API_TOKEN" ]; then
-            v=$(curl -sS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" https://api.cloudflare.com/client/v4/user/tokens/verify | jq -r '.result.status // "invalido"' 2>/dev/null || true)
-            echo "Token Cloudflare: $v"
-            if [ "$v" != "active" ]; then
-              echo "::notice::Versão de teste não publicada: o CLOUDFLARE_API_TOKEN foi recusado pelo Cloudflare ($v). Crie um token com o modelo 'Edit Cloudflare Workers' e substitua o segredo no ambiente 'bia-store'. Ver docs/deploy-teste.md."
+          sub=""
+          # Confere o token do Cloudflare antes de qualquer build. São três provas, porque
+          # /user/tokens/verify falha em tokens criados no escopo da conta mesmo quando o
+          # token é válido; o que decide é conseguir ler os Workers da conta.
+          if [ -n "$CLOUDFLARE_API_TOKEN" ] && [ -n "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            cf() { curl -sS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "https://api.cloudflare.com/client/v4$1"; }
+            vu=$(cf /user/tokens/verify | jq -r '.result.status // "nao"' 2>/dev/null || true)
+            vc=$(cf "/accounts/$CLOUDFLARE_ACCOUNT_ID/tokens/verify" | jq -r '.result.status // "nao"' 2>/dev/null || true)
+            wresp=$(curl -sS -w '\n%{http_code}' -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+              "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/subdomain" || true)
+            wcode=$(echo "$wresp" | tail -1); wbody=$(echo "$wresp" | sed '$d')
+            echo "Token Cloudflare — verificação de usuário: $vu | de conta: $vc | leitura de Workers: HTTP $wcode"
+            if [ "$vu" != "active" ] && [ "$vc" != "active" ] && [ "$wcode" != "200" ]; then
+              echo "Resposta do Cloudflare: $(echo "$wbody" | jq -c '.errors' 2>/dev/null | head -c 300)"
+              echo "::notice::Versão de teste não publicada: o Cloudflare recusou o CLOUDFLARE_API_TOKEN. Crie o token em dash.cloudflare.com/profile/api-tokens com o modelo 'Edit Cloudflare Workers', confirme que a conta escolhida é a 1ed2... e substitua o segredo no ambiente 'bia-store'. Ver docs/deploy-teste.md."
               echo "ok=false" >> "$GITHUB_OUTPUT"
               echo "site_url=" >> "$GITHUB_OUTPUT"
               exit 0
             fi
+            [ "$wcode" = "200" ] && sub=$(echo "$wbody" | jq -r '.result.subdomain // empty' 2>/dev/null || true)
           fi
-          # Endereço do teste: se não informado corretamente, tenta descobrir o subdomínio workers.dev;
-          # se não der, a publicação descobre o endereço pela saída do wrangler (2 passadas).
+          # Endereço do teste: usa o subdomínio workers.dev da conta; se não der,
+          # a publicação descobre o endereço pela saída do wrangler (2 passadas).
           if ! [[ "$NEXT_PUBLIC_SITE_URL" =~ ^https://[a-z0-9-]+\.[a-z0-9-]+\.workers\.dev/?$ ]] || [[ "$NEXT_PUBLIC_SITE_URL" == *SEU-SUBDOMINIO* ]]; then
             NEXT_PUBLIC_SITE_URL=""
-            if [ -n "$CLOUDFLARE_API_TOKEN" ] && [ -n "$CLOUDFLARE_ACCOUNT_ID" ]; then
-              resp=$(curl -sS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/subdomain" || true)
-              sub=$(echo "$resp" | jq -r '.result.subdomain // empty' 2>/dev/null || true)
-              if [ -n "$sub" ]; then
-                NEXT_PUBLIC_SITE_URL="https://biastore-preview.$sub.workers.dev"
-                echo "::notice::Endereço do teste detectado: $NEXT_PUBLIC_SITE_URL"
-              else
-                echo "Subdomínio não consultável ($(echo "$resp" | jq -c '.errors' 2>/dev/null)); será obtido na publicação."
-              fi
+            if [ -n "$sub" ]; then
+              NEXT_PUBLIC_SITE_URL="https://biastore-preview.$sub.workers.dev"
+              echo "::notice::Endereço do teste detectado: $NEXT_PUBLIC_SITE_URL"
+            else
+              echo "Subdomínio não consultável; será obtido na publicação."
             fi
           fi
           [[ -z "$NEXT_PUBLIC_SUPABASE_URL" || "$NEXT_PUBLIC_SUPABASE_URL" =~ ^https://[a-z0-9]{20}\.supabase\.co/?$ ]] || bad="$bad TESTE_SUPABASE_URL"
