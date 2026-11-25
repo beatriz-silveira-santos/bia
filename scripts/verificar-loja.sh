@@ -8,9 +8,22 @@ base="${1:?informe o endereço da loja}"
 base="${base%/}"
 falhas=0
 
+# Visita como um navegador de verdade: mesma sessão (cookies) e mesmos cabeçalhos.
+jar=$(mktemp)
+UA="Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Mobile Safari/537.36"
+visita() { # caminho, arquivo de saída
+  curl -sS -o "$2" -w '%{http_code}' -L --max-time 30 \
+    --cookie "$jar" --cookie-jar "$jar" --compressed \
+    -A "$UA" \
+    -H 'accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8' \
+    -H 'accept-language: pt-BR,pt;q=0.9' \
+    -H 'sec-fetch-dest: document' -H 'sec-fetch-mode: navigate' -H 'sec-fetch-site: none' \
+    "$base$1" || echo 000
+}
+
 pagina() { # caminho, texto esperado (pode ser vazio), código esperado
   local code
-  code=$(curl -sS -o /tmp/verif.html -w '%{http_code}' -L --max-time 30 "$base$1" || echo 000)
+  code=$(visita "$1" /tmp/verif.html)
   if [ "$code" != "$3" ]; then
     echo "::error::$1 respondeu HTTP $code (esperado $3)"
     falhas=$((falhas + 1)); return
@@ -54,6 +67,19 @@ case "$acode" in
   30*|40*) echo "ok  /admin bloqueado para visitante (HTTP $acode)" ;;
   *) echo "::error::/admin respondeu HTTP $acode"; falhas=$((falhas + 1)) ;;
 esac
+
+# Visitas repetidas na mesma sessão: é assim que o erro aparece para quem volta à loja.
+for n in 1 2 3; do
+  code=$(visita "/" /tmp/repete.html)
+  if [ "$code" != "200" ]; then
+    echo "::error::visita $n à página inicial respondeu HTTP $code"
+    head -c 1500 /tmp/repete.html
+    falhas=$((falhas + 1))
+  else
+    echo "ok  visita $n à página inicial (HTTP 200)"
+  fi
+  sleep 2
+done
 
 if [ "$falhas" -eq 0 ]; then
   echo "::notice::Loja de teste respondendo corretamente."
