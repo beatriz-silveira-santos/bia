@@ -88,12 +88,22 @@ jobs:
         if: steps.cfg.outputs.ok == 'true'
         run: |
           # O GitHub Actions não tem IPv6: é preciso usar o pooler (IPv4) do Supabase.
-          region=$(curl -sS -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" "https://api.supabase.com/v1/projects/$SUPABASE_PROJECT_REF" | jq -r '.region // empty')
+          resp=$(curl -sS -w '\n%{http_code}' -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" "https://api.supabase.com/v1/projects/$SUPABASE_PROJECT_REF")
+          code=$(echo "$resp" | tail -1); body=$(echo "$resp" | sed '$d')
+          region=$(echo "$body" | jq -r '.region // empty' 2>/dev/null || true)
+          if [ -z "$region" ]; then
+            echo "API do Supabase respondeu $code: $(echo "$body" | head -c 200)"
+            [ "$code" = "401" ] && echo "::error::O SUPABASE_ACCESS_TOKEN foi recusado. Gere outro em Supabase → Account → Access Tokens."
+          fi
           echo "Região do projeto: ${region:-desconhecida}"
+          # Sem a região, tenta as mais comuns (o projeto foi criado em São Paulo)
+          [ -n "$region" ] || region_list="sa-east-1 us-east-1 us-east-2 us-west-1 eu-central-1"
           pw=$(jq -rn --arg v "$SUPABASE_DB_PASSWORD" '$v|@uri')
           urls=""
-          for prefix in aws-1 aws-0; do
-            [ -n "$region" ] && urls="$urls postgresql://postgres.$SUPABASE_PROJECT_REF:$pw@$prefix-$region.pooler.supabase.com:5432/postgres"
+          for r in ${region:-$region_list}; do
+            for prefix in aws-1 aws-0; do
+              urls="$urls postgresql://postgres.$SUPABASE_PROJECT_REF:$pw@$prefix-$r.pooler.supabase.com:5432/postgres"
+            done
           done
           urls="$urls postgresql://postgres.$SUPABASE_PROJECT_REF:$pw@db.$SUPABASE_PROJECT_REF.supabase.co:5432/postgres"
           ok=""
@@ -102,7 +112,7 @@ jobs:
             echo "Tentando conexão por $host"
             if npx supabase migration list --remote="$u" >/dev/null 2>&1; then ok="$u"; echo "Conectado por $host"; break; fi
           done
-          [ -n "$ok" ] || { echo "::error::Não consegui conectar ao banco do Supabase. Confira a senha do banco em TESTE_SUPABASE_DB_PASSWORD."; exit 1; }
+          [ -n "$ok" ] || { echo "::error::Não consegui conectar ao banco do Supabase. Confira a senha em TESTE_SUPABASE_DB_PASSWORD e o token em SUPABASE_ACCESS_TOKEN."; exit 1; }
           npx supabase db push --remote="$ok" --yes
 
       - name: Catálogo de demonstração e acesso de administradora
