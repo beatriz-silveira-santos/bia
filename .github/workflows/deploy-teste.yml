@@ -75,14 +75,29 @@ jobs:
               "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/subdomain" || true)
             wcode=$(echo "$wresp" | tail -1); wbody=$(echo "$wresp" | sed '$d')
             echo "Cloudflare — verificação de usuário: $vu | de conta: $vc | leitura de Workers: HTTP $wcode"
-            if [ "$vu" != "active" ] && [ "$vc" != "active" ] && [ "$wcode" != "200" ]; then
+            # O token só serve se puder mexer nos Workers DESTA conta. 404 passa: significa
+            # que o token tem acesso, mas a conta ainda não tem subdomínio workers.dev.
+            if [ "$wcode" != "200" ] && [ "$wcode" != "404" ]; then
+              motivo=""
+              if [ "$vu" != "active" ] && [ "$vc" != "active" ]; then
+                motivo="o Cloudflare não reconhece o token ($forma). Ele precisa ser o valor que aparece uma única vez na tela 'Create Token', colado no segredo CLOUDFLARE_API_TOKEN DENTRO do ambiente 'bia-store'."
+              else
+                # Token válido, mas sem acesso a esta conta: ou foi criado para outra conta, ou falta a permissão de Workers.
+                contas=$(cf /accounts | jq -r '[.result[]? | "\(.name) (\(.id))"] | join(" | ")' 2>/dev/null || true)
+                echo "Contas que este token alcança: ${contas:-nenhuma (o token não tem permissão para listar contas)}"
+                if [ -n "$contas" ] && [[ "$contas" != *"$CLOUDFLARE_ACCOUNT_ID"* ]]; then
+                  motivo="o token é válido, mas foi criado para outra conta do Cloudflare, e não para a $CLOUDFLARE_ACCOUNT_ID. Refaça o token escolhendo essa conta em 'Account Resources'."
+                else
+                  motivo="o token é válido e alcança a conta certa, mas não tem a permissão de editar Workers (HTTP $wcode). Refaça o token com o modelo 'Edit Cloudflare Workers', que já vem com ela."
+                fi
+              fi
               echo "Resposta do Cloudflare: $(echo "$wbody" | jq -c '.errors' 2>/dev/null | head -c 300)"
-              echo "::notice::Versão de teste não publicada: o Cloudflare recusou o token ($forma, ${#tok} caracteres). O valor tem de ser colado no segredo CLOUDFLARE_API_TOKEN DENTRO do ambiente 'bia-store' (um segredo do repositório não substitui o do ambiente), e é o valor que aparece uma única vez na tela 'Create Token'. Ver docs/deploy-teste.md."
+              echo "::notice::Versão de teste não publicada: $motivo Ver docs/deploy-teste.md."
               echo "ok=false" >> "$GITHUB_OUTPUT"
               echo "site_url=" >> "$GITHUB_OUTPUT"
               exit 0
             fi
-            [ "$wcode" = "200" ] && sub=$(echo "$wbody" | jq -r '.result.subdomain // empty' 2>/dev/null || true)
+            sub=$(echo "$wbody" | jq -r '.result.subdomain // empty' 2>/dev/null || true)
           fi
           # Endereço do teste: usa o subdomínio workers.dev da conta; se não der,
           # a publicação descobre o endereço pela saída do wrangler (2 passadas).
