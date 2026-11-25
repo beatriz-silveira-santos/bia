@@ -1,36 +1,48 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Bia Store Importados — loja virtual
 
-## Getting Started
+Loja própria da Bia Store Importados (perfumes, skincare e cabelos importados), com catálogo, conta de cliente, carrinho, checkout InfinitePay (Pix e cartão em até 12x), frete real (Correios ou Melhor Envio), venda por encomenda, painel administrativo com MFA e página de links para o Instagram (`/instagram`).
 
-First, run the development server:
+**Stack:** Next.js 16 (App Router) · Tailwind CSS 4 · Supabase (Postgres, Auth, Storage, RLS) · Cloudflare Workers via OpenNext · GitHub Actions.
+
+## Rodando localmente
+
+Pré-requisitos: Node 22, Docker.
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm ci
+npx supabase start          # sobe Postgres/Auth/Storage locais, aplica migrations e seed de DEMONSTRAÇÃO
+cp .env.example .env.local  # preencha com os valores que `npx supabase status` mostrar
+npm run dev                 # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+O seed local cria produtos marcados **[DEMO]** apenas para desenvolvimento. Ele nunca é aplicado em produção.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Comandos
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Comando | O que faz |
+| --- | --- |
+| `npm run lint` / `npm run typecheck` | ESLint e TypeScript |
+| `npm test` | testes unitários (sem banco) |
+| `npm run test:db` | testes de banco: RLS, estoque, encomendas, pagamentos (requer `supabase start`) |
+| `npm run build` | build Next.js |
+| `npm run cf:build` / `npm run cf:preview` | build e prévia local no runtime do Cloudflare Workers |
 
-## Learn More
+## Documentação
 
-To learn more about Next.js, take a look at the following resources:
+- [Arquitetura e decisões](docs/arquitetura.md)
+- [Supabase: projeto, migrations, primeiro administrador](docs/supabase.md)
+- [Cloudflare Workers: deploy e segredos](docs/cloudflare.md)
+- [Domínio e DNS](docs/dominio-dns.md)
+- [InfinitePay](docs/infinitepay.md)
+- [Frete: Correios ou Melhor Envio](docs/frete.md)
+- [E-mail: Brevo, SPF, DKIM, DMARC](docs/email.md)
+- [Meta (Instagram/Facebook) e WhatsApp](docs/meta-whatsapp.md)
+- [Manual do painel administrativo](docs/manual-admin.md)
+- [Backup, monitoramento e manutenção](docs/operacao.md)
+- [Pendências que dependem da proprietária](docs/pendencias.md)
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Regras do projeto
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Nenhum segredo no repositório, em issues, no frontend ou em conversas. Segredos ficam no Cloudflare (`wrangler secret put`) e no Supabase.
+- Nada de dados inventados: preços, estoque, prazos, CNPJ, endereço, políticas e avaliações vêm da proprietária pelo painel.
+- DNS, publicação em produção, transações reais e alterações em recursos existentes do Cloudflare/Supabase só com autorização explícita da proprietária.

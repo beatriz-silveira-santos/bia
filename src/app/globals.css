@@ -1,26 +1,142 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* =====================================================================
+   Bia Store Importados — Design system
+   Beleza premium acessível: off-white quente, blush, champagne e rose gold
+   como acento. Texto sempre em tom escuro de alto contraste.
+   ===================================================================== */
+@theme {
+  --font-display: "Cormorant Garamond Variable", "Cormorant Garamond", Georgia, serif;
+  --font-sans: "Manrope Variable", "Manrope", system-ui, -apple-system, "Segoe UI", sans-serif;
+
+  /* Superfícies */
+  --color-ivory: #fbf7f4;        /* fundo principal (branco quente) */
+  --color-porcelain: #fffdfb;    /* cartões */
+  --color-blush-50: #fcf2f1;
+  --color-blush-100: #f8e6e4;
+  --color-blush-200: #f1d3d1;
+  --color-blush-300: #e6b9b8;
+  --color-champagne: #eadbc8;
+  --color-champagne-soft: #f4ece1;
+
+  /* Rose gold: #b8806f só em detalhes/bordas/ícones (contraste < 4.5 em fundo claro);
+     rose-gold-ink (#8a5043) para textos pequenos de destaque (contraste ≥ 6:1 sobre ivory) */
+  --color-rose-gold: #b8806f;
+  --color-rose-gold-ink: #8a5043;
+  --color-rose-gold-light: #d9b3a4;
+
+  /* Texto */
+  --color-ink: #2a1f22;          /* 15:1 sobre ivory */
+  --color-ink-soft: #4a3b3f;     /* 9.6:1 */
+  --color-ink-muted: #6b5a5f;    /* 6.1:1 */
+  --color-line: #eaddd8;
+  --color-line-strong: #d8c5bf;
+
+  /* Estados (sempre acompanhados de texto/ícone, nunca só cor) */
+  --color-success: #2f6b4f;
+  --color-success-bg: #e8f2ec;
+  --color-warning: #8a5a12;
+  --color-warning-bg: #fbf0dc;
+  --color-danger: #a12f3a;
+  --color-danger-bg: #fbe7e8;
+  --color-info: #3b4f7a;
+  --color-info-bg: #e9eef8;
+
+  --radius-card: 1.25rem;
+  --radius-pill: 999px;
+  --shadow-soft: 0 1px 2px rgb(42 31 34 / 0.04), 0 8px 24px -12px rgb(42 31 34 / 0.12);
+  --shadow-lift: 0 2px 4px rgb(42 31 34 / 0.05), 0 18px 40px -18px rgb(42 31 34 / 0.22);
+
+  --text-display: clamp(2.5rem, 6vw, 4.75rem);
+  --text-display--line-height: 1.02;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    @apply bg-ivory text-ink font-sans antialiased;
+    font-feature-settings: "ss01", "cv11";
+  }
+  h1, h2, h3, .font-display {
+    font-family: var(--font-display);
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    font-feature-settings: normal;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-ink);
+    outline-offset: 3px;
+    border-radius: 6px;
+  }
+  ::selection {
+    background: var(--color-blush-200);
+    color: var(--color-ink);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@utility container-page {
+    @apply mx-auto w-full max-w-[1320px] px-5 sm:px-8;
+}
+
+@utility eyebrow {
+    @apply text-[0.72rem] font-semibold uppercase tracking-[0.22em] text-rose-gold-ink;
+}
+
+@utility btn {
+    @apply inline-flex min-h-12 items-center justify-center gap-2 rounded-full px-6 text-[0.95rem] font-semibold transition
+      disabled:cursor-not-allowed disabled:opacity-50;
+}
+
+@utility btn-primary {
+    @apply btn bg-ink text-ivory hover:bg-ink-soft;
+}
+
+@utility btn-secondary {
+    @apply btn border border-ink/80 bg-transparent text-ink hover:bg-ink hover:text-ivory;
+}
+
+@utility btn-soft {
+    @apply btn bg-blush-100 text-ink hover:bg-blush-200;
+}
+
+@utility btn-whatsapp {
+    @apply btn bg-[#1f6f4a] text-white hover:bg-[#185a3c];
+}
+
+@utility field {
+    @apply block w-full rounded-xl border border-line-strong bg-porcelain px-4 py-3 text-base text-ink
+      placeholder:text-ink-muted/80 focus:border-ink focus:outline-none focus:ring-2 focus:ring-ink/15;
+}
+
+@utility label {
+    @apply mb-1.5 block text-sm font-medium text-ink-soft;
+}
+
+@utility card {
+    @apply rounded-[var(--radius-card)] border border-line bg-porcelain;
+}
+
+@layer components {
+  .hairline {
+    background: linear-gradient(90deg, transparent, var(--color-rose-gold-light), transparent);
+    height: 1px;
+  }
+  .prose-store {
+    @apply text-ink-soft leading-relaxed;
+  }
+  .prose-store h2 { @apply mt-10 mb-3 text-2xl text-ink; }
+  .prose-store h3 { @apply mt-6 mb-2 text-xl text-ink; }
+  .prose-store p { @apply my-3; }
+  .prose-store ul { @apply my-3 list-disc pl-6; }
+  .prose-store a { @apply text-rose-gold-ink underline underline-offset-4; }
 }

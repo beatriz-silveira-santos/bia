@@ -1,0 +1,49 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // Worker de entrada: envolve o worker gerado pelo OpenNext e adiciona a tarefa agendada (cron)
+  "main": "worker.ts",
+  "name": "biastore",
+  "compatibility_date": "2026-11-01",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "assets": { "directory": ".open-next/assets", "binding": "ASSETS" },
+  "services": [{ "binding": "WORKER_SELF_REFERENCE", "service": "biastore" }],
+  "observability": { "enabled": true, "head_sampling_rate": 1 },
+  // A cada 10 minutos: expira reservas de pedidos não pagos; diariamente: alertas de prazo
+  "triggers": { "crons": ["*/10 * * * *"] },
+  // Variáveis NÃO secretas. Segredos: `wrangler secret put NOME` (ver docs/cloudflare.md)
+  "vars": {
+    "APP_ENV": "development",
+    "NEXT_PUBLIC_SITE_URL": "http://localhost:8787",
+    "SHIPPING_PROVIDER": "none",
+    "EMAIL_PROVIDER": "none"
+  },
+  "env": {
+    "preview": {
+      "name": "biastore-preview",
+      "services": [{ "binding": "WORKER_SELF_REFERENCE", "service": "biastore-preview" }],
+      "triggers": { "crons": ["*/10 * * * *"] },
+      "vars": {
+        "APP_ENV": "preview",
+        "NEXT_PUBLIC_SITE_URL": "https://biastore-preview.workers.dev",
+        "SHIPPING_PROVIDER": "none",
+        "EMAIL_PROVIDER": "none"
+      }
+    },
+    "production": {
+      "name": "biastore-production",
+      "services": [{ "binding": "WORKER_SELF_REFERENCE", "service": "biastore-production" }],
+      "triggers": { "crons": ["*/10 * * * *"] },
+      // Rotas do domínio só devem ser ativadas com autorização da proprietária (ver docs/dominio-dns.md)
+      // "routes": [
+      //   { "pattern": "biastoreimportados.com.br", "custom_domain": true },
+      //   { "pattern": "www.biastoreimportados.com.br", "custom_domain": true }
+      // ],
+      "vars": {
+        "APP_ENV": "production",
+        "NEXT_PUBLIC_SITE_URL": "https://biastoreimportados.com.br",
+        "SHIPPING_PROVIDER": "none",
+        "EMAIL_PROVIDER": "none"
+      }
+    }
+  }
+}
