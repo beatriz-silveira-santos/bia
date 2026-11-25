@@ -50,9 +50,14 @@ jobs:
             echo "CF_TOKEN=$tok" >> "$GITHUB_ENV"
             # Diagnóstico sem revelar o valor: tamanho, alfabeto e comparação com
             # prefixos conhecidos de outras credenciais (resposta sim/não, nada do valor).
-            if [[ "$tok" =~ ^[A-Za-z0-9_-]{40}$ ]]; then forma="tem o formato de um token de API do Cloudflare"
+            # Formatos atuais do Cloudflare: cfut_ (token de usuário), cfat_ (token de conta),
+            # cfk_ (Global API Key), cada um com 40 caracteres e um dígito verificador.
+            if [[ "$tok" == cfut_* ]]; then forma="é um token de usuário do Cloudflare (cfut_), o formato certo"
+            elif [[ "$tok" == cfat_* ]]; then forma="é um token de conta do Cloudflare (cfat_), também serve"
+            elif [[ "$tok" == cfk_* ]]; then forma="é a Global API Key do Cloudflare (cfk_), que não serve para publicar Workers"
+            elif [[ "$tok" =~ ^[A-Za-z0-9_-]{40}$ ]]; then forma="tem o formato antigo de token do Cloudflare (40 caracteres)"
             elif [[ "$tok" =~ ^[0-9a-f]{32}$ ]]; then forma="parece o ID do token (o código da linha na lista), não o valor secreto dele"
-            elif [[ "$tok" =~ ^[0-9a-f]{37}$ ]]; then forma="parece a Global API Key, que não serve para publicar Workers"
+            elif [[ "$tok" =~ ^[0-9a-f]{37}$ ]]; then forma="parece a Global API Key antiga, que não serve para publicar Workers"
             elif [[ "$tok" == sbp_* ]]; then forma="parece um token do SUPABASE (começa com sbp_), não do Cloudflare"
             elif [[ "$tok" == sb_secret_* || "$tok" == sb_publishable_* ]]; then forma="parece uma chave do SUPABASE, não um token do Cloudflare"
             elif [[ "$tok" == eyJ* ]]; then forma="parece uma chave JWT do Supabase, não um token do Cloudflare"
@@ -60,7 +65,7 @@ jobs:
             elif [[ "$tok" == v1.0-* ]]; then forma="parece uma chave de Origin CA do Cloudflare, que não publica Workers"
             elif [[ "$tok" == Bearer* ]]; then forma="veio com a palavra Bearer na frente; cole só o token"
             elif [[ "$tok" =~ [^A-Za-z0-9_-] ]]; then forma="tem caracteres que não existem num token do Cloudflare (ele só usa letras, números, - e _), então algo veio junto na cópia"
-            else forma="não tem o tamanho de um token do Cloudflare (são 40 caracteres)"
+            else forma="não tem o formato de nenhum token do Cloudflare (eles começam com cfut_, cfat_ ou cfk_)"
             fi
             echo "Token recebido: ${#tok} caracteres — $forma"
             cf() { curl -sS -H "Authorization: Bearer $tok" "https://api.cloudflare.com/client/v4$1"; }
