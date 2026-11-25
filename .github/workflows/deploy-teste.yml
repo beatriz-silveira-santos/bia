@@ -41,7 +41,22 @@ jobs:
             [ -n "${!v}" ] || missing="$missing $v"
           done
           bad=""
-          [[ -z "$NEXT_PUBLIC_SITE_URL" || "$NEXT_PUBLIC_SITE_URL" =~ ^https://[a-z0-9-]+\.[a-z0-9-]+\.workers\.dev/?$ ]] && [[ "$NEXT_PUBLIC_SITE_URL" != *SEU-SUBDOMINIO* ]] || bad="$bad TESTE_SITE_URL"
+          # Endereço do teste: se não informado corretamente, descobre o subdomínio workers.dev pela API da Cloudflare
+          if ! [[ "$NEXT_PUBLIC_SITE_URL" =~ ^https://[a-z0-9-]+\.[a-z0-9-]+\.workers\.dev/?$ ]] || [[ "$NEXT_PUBLIC_SITE_URL" == *SEU-SUBDOMINIO* ]]; then
+            if [ -n "$CLOUDFLARE_API_TOKEN" ] && [ -n "$CLOUDFLARE_ACCOUNT_ID" ]; then
+              sub=$(curl -fsS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/subdomain" | jq -r '.result.subdomain // empty' || true)
+              if [ -n "$sub" ]; then
+                NEXT_PUBLIC_SITE_URL="https://biastore-preview.$sub.workers.dev"
+                echo "NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL" >> "$GITHUB_ENV"
+                echo "::notice::Endereço do teste detectado automaticamente: $NEXT_PUBLIC_SITE_URL"
+              else
+                echo "::error::Não encontrei o subdomínio workers.dev da conta. Abra 'Workers & Pages' no Cloudflare uma vez para ativá-lo."
+                bad="$bad TESTE_SITE_URL"
+              fi
+            else
+              bad="$bad TESTE_SITE_URL"
+            fi
+          fi
           [[ -z "$NEXT_PUBLIC_SUPABASE_URL" || "$NEXT_PUBLIC_SUPABASE_URL" =~ ^https://[a-z0-9]{20}\.supabase\.co/?$ ]] || bad="$bad TESTE_SUPABASE_URL"
           [[ -z "$SUPABASE_PROJECT_REF" || "$SUPABASE_PROJECT_REF" =~ ^[a-z0-9]{20}$ ]] || bad="$bad TESTE_SUPABASE_PROJECT_REF"
           [[ -z "$NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY" || "$NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY" =~ ^(sb_publishable_|eyJ) ]] || bad="$bad TESTE_SUPABASE_PUBLISHABLE_KEY"
