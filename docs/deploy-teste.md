@@ -22,7 +22,7 @@ O catálogo de teste usa produtos das marcas da loja com **fotos de divulgação
 
 ## 3. GitHub (onde as chaves ficam guardadas)
 
-No repositório: *Settings → Environments → New environment* com o nome **`teste`**. Dentro dele:
+No repositório: *Settings → Environments → New environment* com o nome **`bia-store`**. Dentro dele:
 
 **Secrets** (valores secretos, ninguém consegue ler depois):
 
