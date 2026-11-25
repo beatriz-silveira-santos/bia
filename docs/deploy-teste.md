@@ -28,7 +28,7 @@ No repositório: *Settings → Environments → New environment* com o nome **`b
 
 | Nome | Valor |
 | --- | --- |
-| `CLOUDFLARE_API_TOKEN` | token do passo 2.2 |
+| `CLOUDFLARE_API_TOKEN` | token do passo 2.2 — o valor que aparece uma única vez na tela *Create Token*, não o ID que fica na lista depois. Tem de estar **dentro do ambiente `bia-store`**: um segredo do repositório com o mesmo nome não substitui o do ambiente. |
 | `SUPABASE_ACCESS_TOKEN` | token do passo 1.3 |
 | `TESTE_SUPABASE_DB_PASSWORD` | senha do banco (1.1) — opcional; as migrations usam a Management API |
 | `TESTE_SUPABASE_SECRET_KEY` | chave secret (1.2) — opcional; a publicação lê as chaves pela Management API |

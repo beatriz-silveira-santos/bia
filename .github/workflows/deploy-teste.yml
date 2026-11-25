@@ -44,16 +44,27 @@ jobs:
           # /user/tokens/verify falha em tokens criados no escopo da conta mesmo quando o
           # token é válido; o que decide é conseguir ler os Workers da conta.
           if [ -n "$CLOUDFLARE_API_TOKEN" ] && [ -n "$CLOUDFLARE_ACCOUNT_ID" ]; then
-            cf() { curl -sS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "https://api.cloudflare.com/client/v4$1"; }
+            # Espaços e quebras de linha colados por acidente são removidos.
+            tok=$(printf '%s' "$CLOUDFLARE_API_TOKEN" | tr -d '[:space:]')
+            echo "::add-mask::$tok"
+            echo "CF_TOKEN=$tok" >> "$GITHUB_ENV"
+            # Diagnóstico sem revelar o valor: só o tamanho e o tipo de texto.
+            if [[ "$tok" =~ ^[A-Za-z0-9_-]{40}$ ]]; then forma="tem o formato de um token de API"
+            elif [[ "$tok" =~ ^[0-9a-f]{32}$ ]]; then forma="parece o ID do token (o código da linha na lista), não o valor secreto dele"
+            elif [[ "$tok" =~ ^[0-9a-f]{37}$ ]]; then forma="parece a Global API Key, que não serve para publicar Workers"
+            else forma="não tem o formato de um token de API do Cloudflare"
+            fi
+            echo "Token recebido: ${#tok} caracteres — $forma"
+            cf() { curl -sS -H "Authorization: Bearer $tok" "https://api.cloudflare.com/client/v4$1"; }
             vu=$(cf /user/tokens/verify | jq -r '.result.status // "nao"' 2>/dev/null || true)
             vc=$(cf "/accounts/$CLOUDFLARE_ACCOUNT_ID/tokens/verify" | jq -r '.result.status // "nao"' 2>/dev/null || true)
-            wresp=$(curl -sS -w '\n%{http_code}' -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            wresp=$(curl -sS -w '\n%{http_code}' -H "Authorization: Bearer $tok" \
               "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/subdomain" || true)
             wcode=$(echo "$wresp" | tail -1); wbody=$(echo "$wresp" | sed '$d')
-            echo "Token Cloudflare — verificação de usuário: $vu | de conta: $vc | leitura de Workers: HTTP $wcode"
+            echo "Cloudflare — verificação de usuário: $vu | de conta: $vc | leitura de Workers: HTTP $wcode"
             if [ "$vu" != "active" ] && [ "$vc" != "active" ] && [ "$wcode" != "200" ]; then
               echo "Resposta do Cloudflare: $(echo "$wbody" | jq -c '.errors' 2>/dev/null | head -c 300)"
-              echo "::notice::Versão de teste não publicada: o Cloudflare recusou o CLOUDFLARE_API_TOKEN. Crie o token em dash.cloudflare.com/profile/api-tokens com o modelo 'Edit Cloudflare Workers', confirme que a conta escolhida é a 1ed2... e substitua o segredo no ambiente 'bia-store'. Ver docs/deploy-teste.md."
+              echo "::notice::Versão de teste não publicada: o Cloudflare recusou o token ($forma, ${#tok} caracteres). O valor tem de ser colado no segredo CLOUDFLARE_API_TOKEN DENTRO do ambiente 'bia-store' (um segredo do repositório não substitui o do ambiente), e é o valor que aparece uma única vez na tela 'Create Token'. Ver docs/deploy-teste.md."
               echo "ok=false" >> "$GITHUB_OUTPUT"
               echo "site_url=" >> "$GITHUB_OUTPUT"
               exit 0
@@ -142,7 +153,7 @@ jobs:
         run: |
           deploy() {
             NEXT_PUBLIC_SITE_URL="$1" NEXT_PUBLIC_SUPABASE_URL="$SB_URL" NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY="$SB_PUBLISHABLE_KEY" npm run cf:build
-            npx wrangler deploy --env preview --var "NEXT_PUBLIC_SITE_URL:$1" --var "NEXT_PUBLIC_SUPABASE_URL:${SB_URL}" --var "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:${SB_PUBLISHABLE_KEY}" 2>&1 | tee /tmp/deploy.log
+            CLOUDFLARE_API_TOKEN="$CF_TOKEN" npx wrangler deploy --env preview --var "NEXT_PUBLIC_SITE_URL:$1" --var "NEXT_PUBLIC_SUPABASE_URL:${SB_URL}" --var "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:${SB_PUBLISHABLE_KEY}" 2>&1 | tee /tmp/deploy.log
             test "${PIPESTATUS[0]}" -eq 0
           }
           url="$SITE_URL"
@@ -160,6 +171,7 @@ jobs:
         env:
           CRON_SECRET: ${{ secrets.TESTE_CRON_SECRET || secrets.CRON_SECRET }}
         run: |
+          export CLOUDFLARE_API_TOKEN="$CF_TOKEN"
           printf '%s' "$SB_SECRET_KEY" | npx wrangler secret put SUPABASE_SECRET_KEY --env preview
           if [ -n "$CRON_SECRET" ]; then printf '%s' "$CRON_SECRET" | npx wrangler secret put CRON_SECRET --env preview; fi
 
