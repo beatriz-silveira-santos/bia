@@ -34,30 +34,42 @@ const P = [
   ["lattafa-khamrah-decante-5", "Decante Khamrah 5 ml", "lattafa", "decantes-5-ml", "unisex", 4990, null, 5, "ready_stock", 20, ["new"], JML + "LAT0010.png?v=1758900967", null, true],
   ["afnan-9pm-decante-5", "Decante 9PM 5 ml", "afnan", "decantes-5-ml", "male", 4490, null, 5, "ready_stock", 15, [], JML + "afnan-9pm-pour-homme-eau-de-parfum-100ml-p35649-108050_image.jpg?v=1721322129", null, true],
   ["medicube-zero-pore-pad-2", "Zero Pore Pad 2.0 (70 discos)", "medicube", "skincare", "not_applicable", 18990, null, null, "ready_stock", 6, ["recommended"], "https://www.bperfectcosmetics.com/cdn/shop/files/ZeroPorePad2.0_70pcs.webp?v=1789126754", "Discos tonificantes"],
-  ["kerasys-advanced-repair-shampoo-600", "Advanced Repair Ampoule Shampoo 600 ml", "kerasys", "cabelos", "not_applicable", 11990, null, 600, "ready_stock", 4, [], "https://cdn.shopify.com/s/files/1/0824/4015/9562/files/11408589_1.jpg?v=1742655802", "Shampoo"],
+  ["kerasys-advanced-repair-shampoo-600", "Advanced Repair Ampoule Shampoo 600 ml", "kerasys", "cabelos", "not_applicable", 11990, null, 600, "ready_stock", 4, [], ["https://skinsli.com/cdn/shop/files/11408589_1.jpg?v=1742655802", "https://cdn.shopify.com/s/files/1/0824/4015/9562/files/11408589_1.jpg?v=1742655802"], "Shampoo"],
 ];
 
 // As fotos de divulgação são baixadas uma vez e guardadas no Storage da própria loja,
 // para não depender do site de origem (que pode bloquear links de fora). Se o download
 // falhar, a loja usa a URL original.
 const EXT = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/avif": "avif" };
-async function guardarFoto(slug, origem) {
-  try {
-    const res = await fetch(origem, { headers: { "user-agent": "Mozilla/5.0", accept: "image/*" } });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const tipo = (res.headers.get("content-type") ?? "").split(";")[0].trim();
-    const ext = EXT[tipo];
-    if (!ext) throw new Error(`tipo inesperado: ${tipo || "nenhum"}`);
-    const bytes = new Uint8Array(await res.arrayBuffer());
-    if (bytes.byteLength < 1024) throw new Error("arquivo muito pequeno");
-    const caminho = `demonstracao/${slug}.${ext}`;
-    const { error } = await db.storage.from("products").upload(caminho, bytes, { contentType: tipo, upsert: true });
-    if (error) throw error;
-    return caminho;
-  } catch (e) {
-    console.warn(`  foto de ${slug}: usando o link original (${e instanceof Error ? e.message : e})`);
-    return origem;
+async function baixar(origem) {
+  const res = await fetch(origem, {
+    headers: { "user-agent": "Mozilla/5.0", accept: "image/avif,image/webp,image/png,image/jpeg,*/*" },
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const tipo = (res.headers.get("content-type") ?? "").split(";")[0].trim();
+  const ext = EXT[tipo];
+  if (!ext) throw new Error(`tipo inesperado: ${tipo || "nenhum"}`);
+  const bytes = new Uint8Array(await res.arrayBuffer());
+  if (bytes.byteLength < 1024) throw new Error("arquivo muito pequeno");
+  return { bytes, tipo, ext };
+}
+
+// Tenta as origens em ordem. Se nenhuma funcionar, o produto fica sem foto
+// (a loja mostra "Imagem em breve") — melhor do que guardar um link quebrado.
+async function guardarFoto(slug, origens) {
+  for (const origem of [origens].flat()) {
+    try {
+      const { bytes, tipo, ext } = await baixar(origem);
+      const caminho = `demonstracao/${slug}.${ext}`;
+      const { error } = await db.storage.from("products").upload(caminho, bytes, { contentType: tipo, upsert: true });
+      if (error) throw error;
+      return caminho;
+    } catch (e) {
+      console.warn(`  foto de ${slug}: ${new URL(origem).hostname} falhou (${e instanceof Error ? e.message : e})`);
+    }
   }
+  console.warn(`  foto de ${slug}: nenhuma origem funcionou; produto fica sem foto`);
+  return null;
 }
 
 const { data: cats, error: ce } = await db.from("categories").select("id,slug,parent_id");
@@ -95,8 +107,10 @@ for (const [i, row] of P.entries()) {
   }
   await db.from("product_images").delete().eq("product_id", id);
   const foto = await guardarFoto(slug, img);
-  const { error: ie } = await db.from("product_images").insert({ product_id: id, storage_path: foto, alt_text: `Foto de divulgação de ${name} (provisória)`, position: 0 });
-  if (ie) throw ie;
+  if (foto) {
+    const { error: ie } = await db.from("product_images").insert({ product_id: id, storage_path: foto, alt_text: `Foto de divulgação de ${name} (provisória)`, position: 0 });
+    if (ie) throw ie;
+  }
   n++;
 }
 
