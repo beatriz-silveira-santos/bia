@@ -6,7 +6,7 @@ Nada aqui bloqueia o desenvolvimento; cada item vira campo no painel ou etapa do
 - [ ] Logo oficial em alta resolução (PNG/SVG) — a loja mostra o nome em texto até lá.
 - [ ] Fotos para banner e categorias.
 - [ ] Razão social, CNPJ, endereço e e-mail de contato.
-- [ ] Unidade do prazo de encomenda: **20 dias corridos ou úteis?** (encomendas ficam bloqueadas até a definição).
+- [x] Unidade do prazo de encomenda: **20 dias corridos** (confirmado em 25/11/2026; já é o padrão do banco).
 - [ ] Textos finais: Sobre, Trocas e devoluções, Política de privacidade, Termos, Entrega, Encomendas.
 - [ ] Horário de atendimento do WhatsApp; zonas, valores e prazos de entrega local e regras de retirada.
 

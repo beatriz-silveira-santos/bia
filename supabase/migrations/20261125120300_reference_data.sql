@@ -1,5 +1,7 @@
 -- Dados de referência confirmados pela proprietária (sem preços, estoque ou avaliações)
-insert into public.store_settings (id) values (1) on conflict do nothing;
+-- Prazo padrão de encomenda: 20 dias CORRIDOS, confirmado pela proprietária em 25/11/2026.
+insert into public.store_settings (id, preorder_default_lead_time_value, preorder_default_lead_time_unit)
+values (1, 20, 'calendar_days') on conflict do nothing;
 
 insert into public.categories (name, slug, position, description) values
   ('Perfumes', 'perfumes', 1, null),

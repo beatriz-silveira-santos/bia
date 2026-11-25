@@ -29,7 +29,7 @@ Navegador ──► Cloudflare Workers (Next.js via OpenNext)
 
 - Produto com `fulfillment_mode = accepts_preorder` pode ser vendido sem estoque até `preorder_max_quantity`.
 - Pagamento integral na compra. O prazo de despacho (`dispatch_due_at`) é calculado na confirmação do pagamento com `compute_dispatch_due`.
-- A unidade do prazo (dias corridos ou úteis) **precisa ser confirmada pela proprietária** em Configurações. Enquanto não estiver definida, produtos por encomenda não podem ser comprados.
+- Prazo padrão: **20 dias corridos**, confirmado pela proprietária. Pode ser alterado por produto ou em Configurações. Se a unidade for apagada, produtos por encomenda deixam de ser vendidos até nova definição.
 - Carrinho misto (pronta entrega + encomenda) é enviado em um único despacho, quando tudo estiver disponível. Isso é informado no carrinho e no checkout.
 - Ao receber mercadoria (`svc_admin_receive_stock`), as unidades são alocadas por ordem de pagamento (FIFO).
 

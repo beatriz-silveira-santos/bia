@@ -5,7 +5,7 @@
 -- =====================================================================
 update public.store_settings set
   checkout_enabled = true,
-  preorder_default_lead_time_unit = 'calendar_days'   -- só para testes locais; a proprietária precisa confirmar
+  preorder_default_lead_time_unit = 'calendar_days'   -- confirmado pela proprietária (dias corridos)
 where id = 1;
 
 insert into public.local_delivery_zones (name, cep_ranges, fee_cents, lead_time_text, active)
