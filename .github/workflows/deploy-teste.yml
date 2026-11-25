@@ -44,7 +44,9 @@ jobs:
           # Endereço do teste: se não informado corretamente, descobre o subdomínio workers.dev pela API da Cloudflare
           if ! [[ "$NEXT_PUBLIC_SITE_URL" =~ ^https://[a-z0-9-]+\.[a-z0-9-]+\.workers\.dev/?$ ]] || [[ "$NEXT_PUBLIC_SITE_URL" == *SEU-SUBDOMINIO* ]]; then
             if [ -n "$CLOUDFLARE_API_TOKEN" ] && [ -n "$CLOUDFLARE_ACCOUNT_ID" ]; then
-              sub=$(curl -fsS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/subdomain" | jq -r '.result.subdomain // empty' || true)
+              resp=$(curl -sS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/subdomain" || true)
+              sub=$(echo "$resp" | jq -r '.result.subdomain // empty' 2>/dev/null || true)
+              [ -n "$sub" ] || echo "Resposta da Cloudflare: $(echo "$resp" | jq -c '.errors' 2>/dev/null)"
               if [ -n "$sub" ]; then
                 NEXT_PUBLIC_SITE_URL="https://biastore-preview.$sub.workers.dev"
                 echo "::notice::Endereço do teste detectado automaticamente: $NEXT_PUBLIC_SITE_URL"
