@@ -33,6 +33,7 @@ O seed local cria produtos marcados **[DEMO]** apenas para desenvolvimento. Ele 
 - [Supabase: projeto, migrations, primeiro administrador](docs/supabase.md)
 - [Cloudflare Workers: deploy e segredos](docs/cloudflare.md)
 - [Domínio e DNS](docs/dominio-dns.md)
+- [Versão de teste nas contas da proprietária](docs/deploy-teste.md)
 - [InfinitePay](docs/infinitepay.md)
 - [Frete: Correios ou Melhor Envio](docs/frete.md)
 - [E-mail: Brevo, SPF, DKIM, DMARC](docs/email.md)
