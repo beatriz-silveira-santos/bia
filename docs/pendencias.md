@@ -26,3 +26,20 @@ Nada aqui bloqueia o desenvolvimento; cada item vira campo no painel ou etapa do
 - [ ] Alteração de DNS do domínio.
 - [ ] Publicação em produção.
 - [ ] Teste de compra real de valor baixo.
+
+## Correção de biblioteca de terceiros: leitura de cookies (OpenNext + cookie 1.x)
+
+`scripts/corrigir-cookie-opennext.mjs` roda no `postinstall` e troca, nos dois
+conversores do `@opennextjs/aws`, `import cookieParser from "cookie"` por
+`import * as cookieParser from "cookie"`.
+
+Motivo: o pacote `cookie` 1.x marca `__esModule: true` no build CommonJS mas não
+tem `export default`. No bundle do Worker o import default vira `undefined` e
+toda visita que manda cabeçalho `Cookie` quebra com
+`Cannot read properties of undefined (reading 'parse')`. Como o Cloudflare põe o
+cookie `__cf_bm` na primeira resposta, a primeira visita funcionava e as
+seguintes caíam na tela "Error 1101" (ocorrido em 25/11/2026).
+
+Quando atualizar o `@opennextjs/aws`: se o defeito tiver sido corrigido lá em
+cima, o script avisa que o arquivo mudou de forma e `tests/unit/cookie-opennext.test.ts`
+falha — aí é só remover o script, o `postinstall` e o teste.

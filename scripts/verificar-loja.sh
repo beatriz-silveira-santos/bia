@@ -68,6 +68,20 @@ case "$acode" in
   *) echo "::error::/admin respondeu HTTP $acode"; falhas=$((falhas + 1)) ;;
 esac
 
+# Visita MANDANDO cookie. É o caso que derrubava a loja: o Cloudflare coloca o
+# cookie __cf_bm na primeira resposta, então a primeira visita ia bem e as
+# seguintes quebravam com "Error 1101". Sem este teste o defeito passa batido,
+# porque curl sem cookie nunca entra no código que quebrava.
+ccode=$(curl -sS -o /tmp/comcookie.html -w '%{http_code}' -L --max-time 30 --compressed \
+  -A "$UA" -H 'cookie: __cf_bm=teste-de-verificacao; preferencia=1' "$base/" || echo 000)
+if [ "$ccode" = "200" ] && grep -qiF "Khamrah" /tmp/comcookie.html; then
+  echo "ok  página inicial com cookie (HTTP 200)"
+else
+  echo "::error::página inicial COM cookie respondeu HTTP $ccode"
+  head -c 1200 /tmp/comcookie.html
+  falhas=$((falhas + 1))
+fi
+
 # A tarefa automática (cron) roda a cada 10 minutos e usa o mesmo código do site.
 # Até agora ela era a principal suspeita do erro intermitente, então é exercitada aqui.
 if [ -n "${CRON_SECRET:-}" ]; then
