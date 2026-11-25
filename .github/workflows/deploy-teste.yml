@@ -86,7 +86,24 @@ jobs:
 
       - name: Banco de teste (migrations)
         if: steps.cfg.outputs.ok == 'true'
-        run: npx supabase db push --remote="$SUPABASE_PROJECT_REF" --password "$SUPABASE_DB_PASSWORD" --yes
+        run: |
+          # O GitHub Actions não tem IPv6: é preciso usar o pooler (IPv4) do Supabase.
+          region=$(curl -sS -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" "https://api.supabase.com/v1/projects/$SUPABASE_PROJECT_REF" | jq -r '.region // empty')
+          echo "Região do projeto: ${region:-desconhecida}"
+          pw=$(jq -rn --arg v "$SUPABASE_DB_PASSWORD" '$v|@uri')
+          urls=""
+          for prefix in aws-1 aws-0; do
+            [ -n "$region" ] && urls="$urls postgresql://postgres.$SUPABASE_PROJECT_REF:$pw@$prefix-$region.pooler.supabase.com:5432/postgres"
+          done
+          urls="$urls postgresql://postgres.$SUPABASE_PROJECT_REF:$pw@db.$SUPABASE_PROJECT_REF.supabase.co:5432/postgres"
+          ok=""
+          for u in $urls; do
+            host=$(echo "$u" | sed -E 's|.*@([^:]+):.*|\1|')
+            echo "Tentando conexão por $host"
+            if npx supabase migration list --remote="$u" >/dev/null 2>&1; then ok="$u"; echo "Conectado por $host"; break; fi
+          done
+          [ -n "$ok" ] || { echo "::error::Não consegui conectar ao banco do Supabase. Confira a senha do banco em TESTE_SUPABASE_DB_PASSWORD."; exit 1; }
+          npx supabase db push --remote="$ok" --yes
 
       - name: Catálogo de demonstração e acesso de administradora
         if: steps.cfg.outputs.ok == 'true'
