@@ -203,6 +203,14 @@ jobs:
           printf '%s' "$SB_SECRET_KEY" | npx wrangler secret put SUPABASE_SECRET_KEY --env preview
           if [ -n "$CRON_SECRET" ]; then printf '%s' "$CRON_SECRET" | npx wrangler secret put CRON_SECRET --env preview; fi
 
+      - name: Verificar a loja publicada
+        if: steps.cfg.outputs.ok == 'true'
+        env:
+          URL: ${{ steps.deploy.outputs.url }}
+        run: |
+          sleep 5
+          bash scripts/verificar-loja.sh "$URL"
+
       - name: Endereço publicado
         if: steps.cfg.outputs.ok == 'true'
         env:
