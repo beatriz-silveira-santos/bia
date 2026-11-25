@@ -42,16 +42,21 @@ const worker = {
       });
     }
   },
+  // A tarefa periódica usa uma requisição de verdade ao endereço público, em vez de
+  // chamar o handler com um Request sintético: um Request montado à mão não traz os
+  // dados que o runtime anexa (request.cf), e a falha daí vinha como exceção solta,
+  // que o Cloudflare mostra como "Error 1101" nas visitas seguintes.
   async scheduled(_event: unknown, env: Env, ctx: Ctx) {
-    if (!env.CRON_SECRET) return;
-    const req = new Request(`${env.NEXT_PUBLIC_SITE_URL ?? "https://localhost"}/api/cron/maintenance`, {
-      method: "POST",
-      headers: { authorization: `Bearer ${env.CRON_SECRET}` },
-    });
+    if (!env.CRON_SECRET || !env.NEXT_PUBLIC_SITE_URL) return;
+    const base = env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, "");
     ctx.waitUntil(
       (async () => {
         try {
-          await handler.fetch(req, env, ctx);
+          const res = await fetch(`${base}/api/cron/maintenance`, {
+            method: "POST",
+            headers: { authorization: `Bearer ${env.CRON_SECRET}` },
+          });
+          if (!res.ok) console.error(`Tarefa agendada respondeu ${res.status}: ${(await res.text()).slice(0, 300)}`);
         } catch (e) {
           console.error(`Falha na tarefa agendada: ${descrever(e)}`);
         }
