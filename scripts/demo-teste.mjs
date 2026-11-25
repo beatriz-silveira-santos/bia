@@ -37,6 +37,29 @@ const P = [
   ["kerasys-advanced-repair-shampoo-600", "Advanced Repair Ampoule Shampoo 600 ml", "kerasys", "cabelos", "not_applicable", 11990, null, 600, "ready_stock", 4, [], "https://cdn.shopify.com/s/files/1/0824/4015/9562/files/11408589_1.jpg?v=1742655802", "Shampoo"],
 ];
 
+// As fotos de divulgação são baixadas uma vez e guardadas no Storage da própria loja,
+// para não depender do site de origem (que pode bloquear links de fora). Se o download
+// falhar, a loja usa a URL original.
+const EXT = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp", "image/avif": "avif" };
+async function guardarFoto(slug, origem) {
+  try {
+    const res = await fetch(origem, { headers: { "user-agent": "Mozilla/5.0", accept: "image/*" } });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const tipo = (res.headers.get("content-type") ?? "").split(";")[0].trim();
+    const ext = EXT[tipo];
+    if (!ext) throw new Error(`tipo inesperado: ${tipo || "nenhum"}`);
+    const bytes = new Uint8Array(await res.arrayBuffer());
+    if (bytes.byteLength < 1024) throw new Error("arquivo muito pequeno");
+    const caminho = `demonstracao/${slug}.${ext}`;
+    const { error } = await db.storage.from("products").upload(caminho, bytes, { contentType: tipo, upsert: true });
+    if (error) throw error;
+    return caminho;
+  } catch (e) {
+    console.warn(`  foto de ${slug}: usando o link original (${e instanceof Error ? e.message : e})`);
+    return origem;
+  }
+}
+
 const { data: cats, error: ce } = await db.from("categories").select("id,slug,parent_id");
 if (ce) throw ce;
 const { data: brands, error: be } = await db.from("brands").select("id,slug");
@@ -71,7 +94,8 @@ for (const [i, row] of P.entries()) {
     if (stock > 0) await db.from("inventory_movements").insert({ product_id: id, kind: "initial", quantity: stock, note: "Estoque provisório da versão de teste" });
   }
   await db.from("product_images").delete().eq("product_id", id);
-  const { error: ie } = await db.from("product_images").insert({ product_id: id, storage_path: img, alt_text: `Foto de divulgação de ${name} (provisória)`, position: 0 });
+  const foto = await guardarFoto(slug, img);
+  const { error: ie } = await db.from("product_images").insert({ product_id: id, storage_path: foto, alt_text: `Foto de divulgação de ${name} (provisória)`, position: 0 });
   if (ie) throw ie;
   n++;
 }

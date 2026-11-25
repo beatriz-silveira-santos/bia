@@ -35,3 +35,17 @@ select id, 'admin' from auth.users where email = 'EMAIL_DA_PROPRIETARIA';
 ## Testes
 
 `npx supabase start && npm run test:db` recria o banco local e testa RLS, concorrência de estoque, encomendas, cupons e pagamentos.
+
+## Aplicar migrations sem acesso direto ao Postgres
+
+O GitHub Actions não tem IPv6, e o pooler IPv4 do Supabase exige a senha do banco.
+Para não depender dela, `scripts/aplicar-migrations.mjs` aplica as migrations pela
+Management API do Supabase (HTTPS), usando apenas `SUPABASE_ACCESS_TOKEN` e
+`SUPABASE_PROJECT_REF`:
+
+```bash
+SUPABASE_ACCESS_TOKEN=... SUPABASE_PROJECT_REF=... node scripts/aplicar-migrations.mjs
+```
+
+O script lê o histórico já aplicado no projeto, pula o que tem o mesmo nome e aplica
+o resto em ordem. Em ambiente local continue usando `supabase db push`.

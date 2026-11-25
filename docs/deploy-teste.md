@@ -8,7 +8,7 @@ O catálogo de teste usa produtos das marcas da loja com **fotos de divulgação
 
 ## 1. Supabase (projeto de teste)
 
-1. No painel do Supabase, crie um projeto (região São Paulo). Anote a senha do banco.
+1. No painel do Supabase, crie um projeto (região São Paulo). Anote a senha do banco (só é útil para acesso direto ao Postgres; a publicação não precisa dela).
 2. Em *Project Settings → API*, copie: a URL do projeto, a chave **publishable** e a chave **secret**.
 3. Em *Account → Access Tokens*, gere um token para o GitHub.
 4. Em *Authentication → URL Configuration*, coloque a URL do teste (passo 2.3) em Site URL e em Redirect URLs (`<url>/**`).
@@ -30,7 +30,7 @@ No repositório: *Settings → Environments → New environment* com o nome **`b
 | --- | --- |
 | `CLOUDFLARE_API_TOKEN` | token do passo 2.2 |
 | `SUPABASE_ACCESS_TOKEN` | token do passo 1.3 |
-| `TESTE_SUPABASE_DB_PASSWORD` | senha do banco (1.1) |
+| `TESTE_SUPABASE_DB_PASSWORD` | senha do banco (1.1) — opcional; as migrations usam a Management API |
 | `TESTE_SUPABASE_SECRET_KEY` | chave secret (1.2) |
 | `TESTE_CRON_SECRET` | um texto aleatório longo (ex.: gerado por um gerenciador de senhas, 40+ caracteres) |
 
