@@ -1,0 +1,64 @@
+name: Verificar versão de teste
+
+# Confere se a loja publicada responde de verdade: páginas principais, catálogo
+# aparecendo e área da administradora protegida. Não altera nada.
+on:
+  workflow_dispatch:
+    inputs:
+      url:
+        description: Endereço da loja de teste
+        required: true
+        default: https://biastore-preview.secretaria-1ed.workers.dev
+
+permissions:
+  contents: read
+
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Conferir páginas
+        env:
+          BASE: ${{ inputs.url }}
+        run: |
+          base="${BASE%/}"
+          falhas=0
+          pagina() { # caminho, texto esperado, código esperado
+            code=$(curl -sS -o /tmp/p.html -w '%{http_code}' -L --max-time 30 "$base$1" || echo 000)
+            if [ "$code" != "$3" ]; then
+              echo "::error::$1 respondeu HTTP $code (esperado $3)"
+              falhas=$((falhas+1)); return
+            fi
+            if [ -n "$2" ] && ! grep -qiF "$2" /tmp/p.html; then
+              echo "::error::$1 respondeu $code mas não traz \"$2\""
+              head -c 400 /tmp/p.html
+              falhas=$((falhas+1)); return
+            fi
+            echo "ok  $1  (HTTP $code, $(wc -c < /tmp/p.html) bytes)"
+          }
+          pagina "/" "Khamrah" 200
+          pagina "/categorias" "" 200
+          pagina "/busca?q=khamrah" "Khamrah" 200
+          pagina "/produto/lattafa-khamrah-edp-100" "Khamrah" 200
+          pagina "/instagram" "" 200
+          pagina "/entrar" "" 200
+          pagina "/carrinho" "" 200
+          pagina "/robots.txt" "" 200
+          # A área da administradora não pode abrir para quem não entrou.
+          code=$(curl -sS -o /tmp/a.html -w '%{http_code}' --max-time 30 "$base/admin" || echo 000)
+          echo "/admin respondeu HTTP $code"
+          case "$code" in
+            200) if grep -qiE "painel|pedidos de hoje" /tmp/a.html; then echo "::error::/admin abriu o painel sem login"; falhas=$((falhas+1)); else echo "ok  /admin não expõe o painel"; fi ;;
+            30*|40*) echo "ok  /admin bloqueado para visitante" ;;
+            *) echo "::error::/admin respondeu HTTP $code"; falhas=$((falhas+1)) ;;
+          esac
+          # As fotos do catálogo têm de carregar.
+          foto=$(grep -oE 'https://[a-z0-9]+\.supabase\.co/storage/v1/object/public/products/[^"?]+' /tmp/p.html | head -1 || true)
+          if [ -n "$foto" ]; then
+            fcode=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 30 "$foto" || echo 000)
+            [ "$fcode" = "200" ] && echo "ok  foto do catálogo carrega (HTTP 200)" || { echo "::error::foto do catálogo respondeu HTTP $fcode"; falhas=$((falhas+1)); }
+          else
+            echo "::warning::nenhuma foto do Storage encontrada na página do produto"
+          fi
+          [ "$falhas" -eq 0 ] && echo "::notice::Loja de teste respondendo corretamente." || { echo "::error::$falhas verificação(ões) falharam"; exit 1; }
