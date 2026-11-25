@@ -18,7 +18,7 @@ concurrency:
 jobs:
   publicar:
     runs-on: ubuntu-latest
-    environment: teste
+    environment: bia-store
     timeout-minutes: 30
     env:
       APP_ENV: preview
@@ -41,7 +41,7 @@ jobs:
             [ -n "${!v}" ] || missing="$missing $v"
           done
           if [ -n "$missing" ]; then
-            echo "::notice::Versão de teste não publicada: faltam no ambiente 'teste' do GitHub:$missing (ver docs/deploy-teste.md)"
+            echo "::notice::Versão de teste não publicada: faltam no ambiente 'bia-store' do GitHub:$missing (ver docs/deploy-teste.md)"
             echo "ok=false" >> "$GITHUB_OUTPUT"
           else
             echo "ok=true" >> "$GITHUB_OUTPUT"
