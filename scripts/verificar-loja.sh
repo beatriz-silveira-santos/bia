@@ -68,6 +68,22 @@ case "$acode" in
   *) echo "::error::/admin respondeu HTTP $acode"; falhas=$((falhas + 1)) ;;
 esac
 
+# A tarefa automática (cron) roda a cada 10 minutos e usa o mesmo código do site.
+# Até agora ela era a principal suspeita do erro intermitente, então é exercitada aqui.
+if [ -n "${CRON_SECRET:-}" ]; then
+  ccode=$(curl -sS -o /tmp/cron.txt -w '%{http_code}' --max-time 60 -X POST \
+    -H "authorization: Bearer $CRON_SECRET" "$base/api/cron/maintenance" || echo 000)
+  if [ "$ccode" = "200" ]; then
+    echo "ok  tarefa automática respondeu 200: $(head -c 200 /tmp/cron.txt)"
+  else
+    echo "::error::tarefa automática respondeu HTTP $ccode"
+    head -c 1500 /tmp/cron.txt
+    falhas=$((falhas + 1))
+  fi
+else
+  echo "::warning::sem CRON_SECRET: a tarefa automática não foi testada"
+fi
+
 # Visitas repetidas na mesma sessão: é assim que o erro aparece para quem volta à loja.
 for n in 1 2 3; do
   code=$(visita "/" /tmp/repete.html)

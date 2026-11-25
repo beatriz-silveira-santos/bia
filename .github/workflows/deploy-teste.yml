@@ -207,6 +207,7 @@ jobs:
         if: steps.cfg.outputs.ok == 'true'
         env:
           URL: ${{ steps.deploy.outputs.url }}
+          CRON_SECRET: ${{ secrets.TESTE_CRON_SECRET || secrets.CRON_SECRET }}
         run: |
           sleep 5
           bash scripts/verificar-loja.sh "$URL"
