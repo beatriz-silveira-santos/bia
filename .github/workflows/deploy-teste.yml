@@ -110,7 +110,8 @@ jobs:
           for u in $urls; do
             host=$(echo "$u" | sed -E 's|.*@([^:]+):.*|\1|')
             echo "Tentando conexão por $host"
-            if npx supabase migration list --remote="$u" >/dev/null 2>&1; then ok="$u"; echo "Conectado por $host"; break; fi
+            if out=$(npx supabase migration list --remote="$u" 2>&1); then ok="$u"; echo "Conectado por $host"; break; fi
+            echo "  $(echo "$out" | grep -viE 'postgres(ql)?://' | head -2 | tr '\n' ' ')"
           done
           [ -n "$ok" ] || { echo "::error::Não consegui conectar ao banco do Supabase. Confira a senha em TESTE_SUPABASE_DB_PASSWORD e o token em SUPABASE_ACCESS_TOKEN."; exit 1; }
           npx supabase db push --remote="$ok" --yes
