@@ -47,7 +47,6 @@ jobs:
               sub=$(curl -fsS -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/subdomain" | jq -r '.result.subdomain // empty' || true)
               if [ -n "$sub" ]; then
                 NEXT_PUBLIC_SITE_URL="https://biastore-preview.$sub.workers.dev"
-                echo "NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL" >> "$GITHUB_ENV"
                 echo "::notice::Endereço do teste detectado automaticamente: $NEXT_PUBLIC_SITE_URL"
               else
                 echo "::error::Não encontrei o subdomínio workers.dev da conta. Abra 'Workers & Pages' no Cloudflare uma vez para ativá-lo."
@@ -65,6 +64,7 @@ jobs:
             echo "::error::Valores em formato inesperado (confira o que foi colado):$bad"
             exit 1
           fi
+          echo "site_url=$NEXT_PUBLIC_SITE_URL" >> "$GITHUB_OUTPUT"
           if [ -n "$missing" ]; then
             echo "::notice::Versão de teste não publicada: faltam no ambiente 'bia-store' do GitHub:$missing (ver docs/deploy-teste.md)"
             echo "ok=false" >> "$GITHUB_OUTPUT"
@@ -95,10 +95,14 @@ jobs:
 
       - name: Build para Cloudflare Workers
         if: steps.cfg.outputs.ok == 'true'
+        env:
+          NEXT_PUBLIC_SITE_URL: ${{ steps.cfg.outputs.site_url }}
         run: npm run cf:build
 
       - name: Publicar (workers.dev, ambiente preview)
         if: steps.cfg.outputs.ok == 'true'
+        env:
+          NEXT_PUBLIC_SITE_URL: ${{ steps.cfg.outputs.site_url }}
         run: npx wrangler deploy --env preview --var "NEXT_PUBLIC_SITE_URL:${NEXT_PUBLIC_SITE_URL}" --var "NEXT_PUBLIC_SUPABASE_URL:${NEXT_PUBLIC_SUPABASE_URL}" --var "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY}"
 
       - name: Segredos do Worker
@@ -111,4 +115,6 @@ jobs:
 
       - name: Endereço publicado
         if: steps.cfg.outputs.ok == 'true'
+        env:
+          NEXT_PUBLIC_SITE_URL: ${{ steps.cfg.outputs.site_url }}
         run: echo "::notice::Versão de teste publicada em $NEXT_PUBLIC_SITE_URL"
