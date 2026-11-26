@@ -43,7 +43,7 @@ No repositório: *Settings → Environments → New environment* com o nome **`b
 | `TESTE_SUPABASE_URL` | URL do projeto (1.2) |
 | `TESTE_SUPABASE_PUBLISHABLE_KEY` | chave publishable (1.2) |
 | `TESTE_SUPABASE_PROJECT_REF` | o código do projeto (o trecho antes de `.supabase.co` na URL) |
-| `TESTE_ADMIN_EMAIL` | o e-mail com que você se cadastrou na loja de teste (para virar administradora) |
+| `TESTE_ADMIN_EMAIL` | o e-mail com que você se cadastrou na loja de teste (para virar administradora). Dá para informar na hora, em *Run workflow* → *admin_email*, sem gravar a variável. |
 
 Nunca envie esses valores por chat, e-mail ou issue.
 

@@ -7,6 +7,13 @@ on:
   push:
     branches: [main, feat/loja-inicial]
   workflow_dispatch:
+    inputs:
+      admin_email:
+        description: >-
+          E-mail da conta que deve receber acesso ao painel nesta loja de teste.
+          Em branco, usa a variável TESTE_ADMIN_EMAIL do ambiente. A conta precisa
+          já existir (cadastro feito na loja).
+        required: false
 
 permissions:
   contents: read
@@ -165,11 +172,15 @@ jobs:
       - name: Catálogo de demonstração e acesso de administradora
         if: steps.cfg.outputs.ok == 'true'
         env:
-          EMAIL_ADMIN: ${{ vars.TESTE_ADMIN_EMAIL }}
+          EMAIL_ADMIN: ${{ inputs.admin_email || vars.TESTE_ADMIN_EMAIL }}
         run: |
           # Só usa o e-mail se parecer um e-mail (a variável pode ter ficado com o texto do guia).
+          # O endereço é um dado pessoal da proprietária: fica mascarado no registro da execução.
           admin=""
-          [[ "$EMAIL_ADMIN" =~ ^[^[:space:]@]+@[^[:space:]@]+\.[a-zA-Z]{2,}$ ]] && admin="$EMAIL_ADMIN"
+          if [[ "$EMAIL_ADMIN" =~ ^[^[:space:]@]+@[^[:space:]@]+\.[a-zA-Z]{2,}$ ]]; then
+            echo "::add-mask::$EMAIL_ADMIN"
+            admin="$EMAIL_ADMIN"
+          fi
           [ -n "$admin" ] || echo "::notice::Sem e-mail de administradora configurado: o acesso ao /admin é concedido depois do cadastro na loja."
           SUPABASE_URL="$SB_URL" SUPABASE_SECRET_KEY="$SB_SECRET_KEY" ADMIN_EMAIL="$admin" node scripts/demo-teste.mjs
 
