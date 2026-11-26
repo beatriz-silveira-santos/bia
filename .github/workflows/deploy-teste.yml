@@ -1,0 +1,230 @@
+name: Publicar versão de teste
+
+# Publica a versão de TESTE (workers.dev) usando somente as contas Cloudflare e Supabase da proprietária.
+# Roda automaticamente a cada envio para os ramos abaixo e também pelo botão "Run workflow".
+# Enquanto as chaves não estiverem cadastradas no ambiente "teste" do GitHub, o job apenas avisa e encerra.
+on:
+  push:
+    branches: [main, feat/loja-inicial]
+  workflow_dispatch:
+    inputs:
+      admin_email:
+        description: >-
+          E-mail da conta que deve receber acesso ao painel nesta loja de teste.
+          Em branco, usa a variável TESTE_ADMIN_EMAIL do ambiente. A conta precisa
+          já existir (cadastro feito na loja).
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-teste
+  cancel-in-progress: false
+
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    environment: bia-store
+    timeout-minutes: 30
+    env:
+      APP_ENV: preview
+      NEXT_PUBLIC_SITE_URL: ${{ vars.TESTE_SITE_URL || secrets.TESTE_SITE_URL }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ vars.TESTE_SUPABASE_URL || secrets.TESTE_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ vars.TESTE_SUPABASE_PUBLISHABLE_KEY || secrets.TESTE_SUPABASE_PUBLISHABLE_KEY }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID || secrets.CLOUDFLARE_ACCOUNT_ID }}
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_PROJECT_REF: ${{ vars.TESTE_SUPABASE_PROJECT_REF || secrets.TESTE_SUPABASE_PROJECT_REF }}
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - name: Conferir configuração (sem mostrar valores)
+        id: cfg
+        run: |
+          missing=""
+          for v in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID SUPABASE_ACCESS_TOKEN SUPABASE_PROJECT_REF; do
+            [ -n "${!v}" ] || missing="$missing $v"
+          done
+          bad=""
+          sub=""
+          # Confere o token do Cloudflare antes de qualquer build. São três provas, porque
+          # /user/tokens/verify falha em tokens criados no escopo da conta mesmo quando o
+          # token é válido; o que decide é conseguir ler os Workers da conta.
+          if [ -n "$CLOUDFLARE_API_TOKEN" ] && [ -n "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            # Espaços e quebras de linha colados por acidente são removidos.
+            tok=$(printf '%s' "$CLOUDFLARE_API_TOKEN" | tr -d '[:space:]')
+            echo "::add-mask::$tok"
+            echo "CF_TOKEN=$tok" >> "$GITHUB_ENV"
+            # Diagnóstico sem revelar o valor: tamanho, alfabeto e comparação com
+            # prefixos conhecidos de outras credenciais (resposta sim/não, nada do valor).
+            # Formatos atuais do Cloudflare: cfut_ (token de usuário), cfat_ (token de conta),
+            # cfk_ (Global API Key), cada um com 40 caracteres e um dígito verificador.
+            if [[ "$tok" == cfut_* ]]; then forma="é um token de usuário do Cloudflare (cfut_), o formato certo"
+            elif [[ "$tok" == cfat_* ]]; then forma="é um token de conta do Cloudflare (cfat_), também serve"
+            elif [[ "$tok" == cfk_* ]]; then forma="é a Global API Key do Cloudflare (cfk_), que não serve para publicar Workers"
+            elif [[ "$tok" =~ ^[A-Za-z0-9_-]{40}$ ]]; then forma="tem o formato antigo de token do Cloudflare (40 caracteres)"
+            elif [[ "$tok" =~ ^[0-9a-f]{32}$ ]]; then forma="parece o ID do token (o código da linha na lista), não o valor secreto dele"
+            elif [[ "$tok" =~ ^[0-9a-f]{37}$ ]]; then forma="parece a Global API Key antiga, que não serve para publicar Workers"
+            elif [[ "$tok" == sbp_* ]]; then forma="parece um token do SUPABASE (começa com sbp_), não do Cloudflare"
+            elif [[ "$tok" == sb_secret_* || "$tok" == sb_publishable_* ]]; then forma="parece uma chave do SUPABASE, não um token do Cloudflare"
+            elif [[ "$tok" == eyJ* ]]; then forma="parece uma chave JWT do Supabase, não um token do Cloudflare"
+            elif [[ "$tok" == gh[pous]_* || "$tok" == github_pat_* ]]; then forma="parece um token do GITHUB, não do Cloudflare"
+            elif [[ "$tok" == v1.0-* ]]; then forma="parece uma chave de Origin CA do Cloudflare, que não publica Workers"
+            elif [[ "$tok" == Bearer* ]]; then forma="veio com a palavra Bearer na frente; cole só o token"
+            elif [[ "$tok" =~ [^A-Za-z0-9_-] ]]; then forma="tem caracteres que não existem num token do Cloudflare (ele só usa letras, números, - e _), então algo veio junto na cópia"
+            else forma="não tem o formato de nenhum token do Cloudflare (eles começam com cfut_, cfat_ ou cfk_)"
+            fi
+            echo "Token recebido: ${#tok} caracteres — $forma"
+            cf() { curl -sS -H "Authorization: Bearer $tok" "https://api.cloudflare.com/client/v4$1"; }
+            vu=$(cf /user/tokens/verify | jq -r '.result.status // "nao"' 2>/dev/null || true)
+            vc=$(cf "/accounts/$CLOUDFLARE_ACCOUNT_ID/tokens/verify" | jq -r '.result.status // "nao"' 2>/dev/null || true)
+            wresp=$(curl -sS -w '\n%{http_code}' -H "Authorization: Bearer $tok" \
+              "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/subdomain" || true)
+            wcode=$(echo "$wresp" | tail -1); wbody=$(echo "$wresp" | sed '$d')
+            echo "Cloudflare — verificação de usuário: $vu | de conta: $vc | leitura de Workers: HTTP $wcode"
+            # O token só serve se puder mexer nos Workers DESTA conta. 404 passa: significa
+            # que o token tem acesso, mas a conta ainda não tem subdomínio workers.dev.
+            if [ "$wcode" != "200" ] && [ "$wcode" != "404" ]; then
+              motivo=""
+              if [ "$vu" != "active" ] && [ "$vc" != "active" ]; then
+                motivo="o Cloudflare não reconhece o token ($forma). Ele precisa ser o valor que aparece uma única vez na tela 'Create Token', colado no segredo CLOUDFLARE_API_TOKEN DENTRO do ambiente 'bia-store'."
+              else
+                # Token válido, mas sem acesso a esta conta: ou foi criado para outra conta, ou falta a permissão de Workers.
+                contas=$(cf /accounts | jq -r '[.result[]? | "\(.name) (\(.id))"] | join(" | ")' 2>/dev/null || true)
+                echo "Contas que este token alcança: ${contas:-nenhuma (o token não tem permissão para listar contas)}"
+                if [ -n "$contas" ] && [[ "$contas" != *"$CLOUDFLARE_ACCOUNT_ID"* ]]; then
+                  motivo="o token é válido, mas foi criado para outra conta do Cloudflare, e não para a $CLOUDFLARE_ACCOUNT_ID. Refaça o token escolhendo essa conta em 'Account Resources'."
+                else
+                  motivo="o token é válido e alcança a conta certa, mas não tem a permissão de editar Workers (HTTP $wcode). Refaça o token com o modelo 'Edit Cloudflare Workers', que já vem com ela."
+                fi
+              fi
+              echo "Resposta do Cloudflare: $(echo "$wbody" | jq -c '.errors' 2>/dev/null | head -c 300)"
+              echo "::notice::Versão de teste não publicada: $motivo Ver docs/deploy-teste.md."
+              echo "ok=false" >> "$GITHUB_OUTPUT"
+              echo "site_url=" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            sub=$(echo "$wbody" | jq -r '.result.subdomain // empty' 2>/dev/null || true)
+          fi
+          # Endereço do teste: usa o subdomínio workers.dev da conta; se não der,
+          # a publicação descobre o endereço pela saída do wrangler (2 passadas).
+          if ! [[ "$NEXT_PUBLIC_SITE_URL" =~ ^https://[a-z0-9-]+\.[a-z0-9-]+\.workers\.dev/?$ ]] || [[ "$NEXT_PUBLIC_SITE_URL" == *SEU-SUBDOMINIO* ]]; then
+            NEXT_PUBLIC_SITE_URL=""
+            if [ -n "$sub" ]; then
+              NEXT_PUBLIC_SITE_URL="https://biastore-preview.$sub.workers.dev"
+              echo "::notice::Endereço do teste detectado: $NEXT_PUBLIC_SITE_URL"
+            else
+              echo "Subdomínio não consultável; será obtido na publicação."
+            fi
+          fi
+          [[ -z "$NEXT_PUBLIC_SUPABASE_URL" || "$NEXT_PUBLIC_SUPABASE_URL" =~ ^https://[a-z0-9]{20}\.supabase\.co/?$ ]] || bad="$bad TESTE_SUPABASE_URL"
+          [[ -z "$SUPABASE_PROJECT_REF" || "$SUPABASE_PROJECT_REF" =~ ^[a-z0-9]{20}$ ]] || bad="$bad TESTE_SUPABASE_PROJECT_REF"
+          [[ -z "$NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY" || "$NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY" =~ ^(sb_publishable_|eyJ) ]] || bad="$bad TESTE_SUPABASE_PUBLISHABLE_KEY"
+          [[ -z "$CLOUDFLARE_ACCOUNT_ID" || "$CLOUDFLARE_ACCOUNT_ID" =~ ^[0-9a-f]{32}$ ]] || bad="$bad CLOUDFLARE_ACCOUNT_ID"
+          if [ -n "$bad" ]; then
+            echo "::error::Valores em formato inesperado (confira o que foi colado):$bad"
+            exit 1
+          fi
+          echo "site_url=$NEXT_PUBLIC_SITE_URL" >> "$GITHUB_OUTPUT"
+          if [ -n "$missing" ]; then
+            echo "::notice::Versão de teste não publicada: faltam no ambiente 'bia-store' do GitHub:$missing (ver docs/deploy-teste.md)"
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ok=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - if: steps.cfg.outputs.ok == 'true'
+        uses: actions/checkout@v4
+      - if: steps.cfg.outputs.ok == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - if: steps.cfg.outputs.ok == 'true'
+        run: npm ci
+
+      - name: Chaves do projeto Supabase
+        if: steps.cfg.outputs.ok == 'true'
+        run: |
+          # As chaves vêm da Management API com o token de acesso da proprietária,
+          # para não depender de valores colados à mão. Nada é impresso no log.
+          resp=$(curl -sS -w '\n%{http_code}' -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+            "https://api.supabase.com/v1/projects/$SUPABASE_PROJECT_REF/api-keys?reveal=true")
+          code=$(echo "$resp" | tail -1); body=$(echo "$resp" | sed '$d')
+          if [ "$code" != "200" ]; then
+            echo "::error::Não consegui ler as chaves do projeto Supabase (HTTP $code). Confira o SUPABASE_ACCESS_TOKEN."
+            exit 1
+          fi
+          secret=$(echo "$body" | jq -r '[.[] | select(.type=="secret")] + [.[] | select(.name=="service_role")] | .[0].api_key // empty')
+          pub=$(echo "$body" | jq -r '[.[] | select(.type=="publishable")] + [.[] | select(.name=="anon")] | .[0].api_key // empty')
+          [ -n "$secret" ] || { echo "::error::O projeto não tem chave secreta (secret/service_role) habilitada."; exit 1; }
+          [ -n "$pub" ] || { echo "::error::O projeto não tem chave pública (publishable/anon) habilitada."; exit 1; }
+          echo "::add-mask::$secret"
+          echo "SB_SECRET_KEY=$secret" >> "$GITHUB_ENV"
+          echo "SB_PUBLISHABLE_KEY=$pub" >> "$GITHUB_ENV"
+          echo "SB_URL=https://$SUPABASE_PROJECT_REF.supabase.co" >> "$GITHUB_ENV"
+          echo "Chaves obtidas do projeto $SUPABASE_PROJECT_REF."
+
+      - name: Banco de teste (migrations)
+        if: steps.cfg.outputs.ok == 'true'
+        run: node scripts/aplicar-migrations.mjs
+
+      - name: Catálogo de demonstração e acesso de administradora
+        if: steps.cfg.outputs.ok == 'true'
+        env:
+          EMAIL_ADMIN: ${{ inputs.admin_email || vars.TESTE_ADMIN_EMAIL }}
+        run: |
+          # Só usa o e-mail se parecer um e-mail (a variável pode ter ficado com o texto do guia).
+          # O endereço é um dado pessoal da proprietária: fica mascarado no registro da execução.
+          admin=""
+          if [[ "$EMAIL_ADMIN" =~ ^[^[:space:]@]+@[^[:space:]@]+\.[a-zA-Z]{2,}$ ]]; then
+            echo "::add-mask::$EMAIL_ADMIN"
+            admin="$EMAIL_ADMIN"
+          fi
+          [ -n "$admin" ] || echo "::notice::Sem e-mail de administradora configurado: o acesso ao /admin é concedido depois do cadastro na loja."
+          SUPABASE_URL="$SB_URL" SUPABASE_SECRET_KEY="$SB_SECRET_KEY" ADMIN_EMAIL="$admin" node scripts/demo-teste.mjs
+
+      - name: Build e publicação (workers.dev, ambiente preview)
+        id: deploy
+        if: steps.cfg.outputs.ok == 'true'
+        env:
+          SITE_URL: ${{ steps.cfg.outputs.site_url }}
+        run: |
+          deploy() {
+            NEXT_PUBLIC_SITE_URL="$1" NEXT_PUBLIC_SUPABASE_URL="$SB_URL" NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY="$SB_PUBLISHABLE_KEY" npm run cf:build
+            CLOUDFLARE_API_TOKEN="$CF_TOKEN" npx wrangler deploy --env preview --var "NEXT_PUBLIC_SITE_URL:$1" --var "NEXT_PUBLIC_SUPABASE_URL:${SB_URL}" --var "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:${SB_PUBLISHABLE_KEY}" 2>&1 | tee /tmp/deploy.log
+            test "${PIPESTATUS[0]}" -eq 0
+          }
+          url="$SITE_URL"
+          deploy "${url:-https://biastore-preview.workers.dev}"
+          if [ -z "$url" ]; then
+            url=$(grep -oE 'https://biastore-preview\.[a-z0-9-]+\.workers\.dev' /tmp/deploy.log | head -1)
+            [ -n "$url" ] || { echo "::error::Não consegui descobrir o endereço workers.dev. Abra 'Workers & Pages' no Cloudflare uma vez para ativar o subdomínio."; exit 1; }
+            echo "Endereço descoberto: $url — publicando de novo com o endereço correto"
+            deploy "$url"
+          fi
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+
+      - name: Segredos do Worker
+        if: steps.cfg.outputs.ok == 'true'
+        env:
+          CRON_SECRET: ${{ secrets.TESTE_CRON_SECRET || secrets.CRON_SECRET }}
+        run: |
+          export CLOUDFLARE_API_TOKEN="$CF_TOKEN"
+          printf '%s' "$SB_SECRET_KEY" | npx wrangler secret put SUPABASE_SECRET_KEY --env preview
+          if [ -n "$CRON_SECRET" ]; then printf '%s' "$CRON_SECRET" | npx wrangler secret put CRON_SECRET --env preview; fi
+
+      - name: Verificar a loja publicada
+        if: steps.cfg.outputs.ok == 'true'
+        env:
+          URL: ${{ steps.deploy.outputs.url }}
+          CRON_SECRET: ${{ secrets.TESTE_CRON_SECRET || secrets.CRON_SECRET }}
+        run: |
+          sleep 5
+          bash scripts/verificar-loja.sh "$URL"
+
+      - name: Endereço publicado
+        if: steps.cfg.outputs.ok == 'true'
+        env:
+          URL: ${{ steps.deploy.outputs.url }}
+        run: echo "::notice::Versão de teste publicada em $URL"

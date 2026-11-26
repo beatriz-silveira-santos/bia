@@ -1,0 +1,35 @@
+name: Conferir loja no ar
+
+# Confere a loja já publicada, sem publicar nada. Útil para checar o site depois
+# de a tarefa automática rodar, sem criar uma versão nova do Worker.
+# Para rodar: altere o arquivo .github/verificar-agora (qualquer conteúdo) e envie.
+on:
+  push:
+    paths:
+      - .github/verificar-agora
+      - scripts/verificar-loja.sh
+  workflow_dispatch:
+    inputs:
+      url:
+        description: Endereço da loja
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  conferir:
+    runs-on: ubuntu-latest
+    environment: bia-store
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Conferir
+        env:
+          ENTRADA: ${{ inputs.url }}
+          CRON_SECRET: ${{ secrets.TESTE_CRON_SECRET || secrets.CRON_SECRET }}
+        run: |
+          url="${ENTRADA:-$(cat .github/verificar-agora | grep -oE 'https://[^[:space:]]+' | head -1)}"
+          [ -n "$url" ] || { echo "::error::Sem endereço para conferir."; exit 1; }
+          echo "Conferindo $url"
+          bash scripts/verificar-loja.sh "$url"

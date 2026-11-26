@@ -1,0 +1,5 @@
+Endereço da loja de teste conferida por este fluxo:
+https://biastore-preview.secretaria-1ed.workers.dev
+
+Altere a linha abaixo (data/hora) para disparar uma conferência.
+conferir: 2026-11-25T19:22Z (depois do cron das 19:20)

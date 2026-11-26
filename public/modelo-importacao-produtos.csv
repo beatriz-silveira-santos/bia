@@ -1,0 +1,2 @@
+sku;nome;marca;categoria;subcategoria;classificacao;preco;preco_promocional;volume_ml;decante;descricao;familia_olfativa;acordes;notas_saida;notas_coracao;notas_fundo;tipo_produto;modo_de_uso;composicao;advertencias;beneficios;conteudo;peso_g;largura_cm;altura_cm;comprimento_cm;modalidade;encomenda_max;estoque_inicial;fornecedor
+EXEMPLO-001;Nome do produto (exemplo);lattafa;perfumes;perfumes-arabes;feminino;199,90;;100;nao;Descrição conforme fabricante;;"acorde 1, acorde 2";;;;;;;;;;450;12;16;8;pronta_entrega;;3;
